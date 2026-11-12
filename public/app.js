@@ -73,7 +73,7 @@ async function post(path, payload, timeoutMs = 5000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const response = await fetch('/cursorclash' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload), signal: controller.signal, cache: 'no-store' });
     const body = await response.json();
     if (!response.ok) {
@@ -381,6 +381,6 @@ requestAnimationFrame(draw);
 window.addEventListener('pagehide',()=>{
   if(!session)return;
   const data=JSON.stringify(session);
-  if(navigator.sendBeacon)navigator.sendBeacon('/api/leave',new Blob([data],{type:'application/json'}));
+  if(navigator.sendBeacon)navigator.sendBeacon('/cursorclash/api/leave',new Blob([data],{type:'application/json'}));
 });
 setWeapon('spark');
