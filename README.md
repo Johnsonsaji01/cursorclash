@@ -1,8 +1,17 @@
-# CursorClash
+# CursorClash v1.1
 
 A playable, shared-arena multiplayer cursor game. Every player can see the others' cursors, move around one page, select weapons, attack opponents, and compete for eliminations. All players have **100 health and 100 mana**. Mana regenerates by **10 per second**. Health regenerates by 3 per second after 5 seconds without taking damage.
 
 **No WebSockets, Socket.IO or Server-Sent Events** are used anywhere. The browser sends a JSON `POST /api/sync` using HTTP `fetch()` every 75 ms. Each response contains the authoritative player positions and game events. Other players' movement is interpolated in the browser for smoother animation.
+
+
+## New in v1.1
+
+- Smaller in-arena cursors and compact name/HP labels.
+- Press **H** or click **HEAL** to recover **35 HP** for **25 mana** (4.5-second cooldown). Existing slow regeneration is unchanged.
+- Press **D** or click **DRAW MODE** to switch from combat to drawing. Select **PEN**, **LINE**, **RECT**, or **CIRCLE**, then drag across the arena. Drawings are visible to every player using the normal HTTP polling, and disappear automatically **3.5 seconds** after completion (fading over the final 1.8 seconds). Press **D** or **Esc** to leave drawing mode.
+- Drawings are restricted to 48 points per stroke, rate limited and capped server-side. No WebSockets were added.
+- API supports both root and `/cursorclash/` paths so the same Docker image works behind Coolify with or without stripping the path prefix. Keep a trailing slash on the public URL.
 
 ## Play locally
 
@@ -21,10 +30,11 @@ The included `Dockerfile` is ready for a Git-based Coolify deployment:
 1. Create a Git repository and upload the files in this folder, preserving the `public/` directory.
 2. In Coolify, choose **New Resource → Application → your Git repository** and select **Dockerfile** as the build pack.
 3. Set the application port to **3000** (the app listens on `0.0.0.0:3000` by default).
-4. Assign your domain and deploy. Coolify's reverse proxy can forward normal HTTP requests to the container; no WebSocket configuration is required.
-5. Open the domain from two browsers to play together. HTTPS is recommended for public deployments.
+4. For a shared hostname, configure Coolify's HTTP routing to match `Host(gmg.perplexnet.co.uk)` with the `/cursorclash` path prefix and **preserve the prefix** (do not strip it). The game serves both `/` and `/cursorclash/`, including its prefixed API. Ensure a different application serving `/` does not capture the more specific `/cursorclash` route.
+5. Assign your domain and deploy. Coolify's reverse proxy can forward normal HTTP requests to the container; no WebSocket configuration is required.
+6. Open the domain from two browsers to play together. HTTPS is recommended for public deployments.
 
-The app has a `GET /api/health` endpoint for health checks.
+The app has a `GET /api/health` endpoint for health checks, also available at `GET /cursorclash/api/health`. It redirects `/cursorclash` to `/cursorclash/` to keep relative asset URLs correct. The desired shared-domain URL is `https://gmg.perplexnet.co.uk/cursorclash/`.
 
 Alternatively, build and run manually:
 

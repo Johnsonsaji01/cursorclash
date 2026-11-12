@@ -11,6 +11,11 @@ const HOST = process.env.HOST || '0.0.0.0';
 const W = 1600;
 const H = 900;
 const MAX_PLAYERS = 60;
+const DRAW_TTL_MS = 3500;
+const drawings = [];
+let nextDrawingId = 0;
+const HEAL = Object.freeze({ cost: 25, amount: 35, cooldown: 4500 });
+const BASE_PATH = '/cursorclash'; // Allow the arena to live below this URL path.
 const INACTIVE_MS = 15000;
 const RESPAWN_MS = 3000;
 const MANA_REGEN = 10; // points per second
@@ -38,12 +43,13 @@ function publicPlayer(p) {
   return { id: p.id, name: p.name, color: p.color, x: p.x, y: p.y,
     hp: Math.round(p.hp * 10) / 10, mana: Math.round(p.mana * 10) / 10,
     alive: p.alive, kills: p.kills, deaths: p.deaths, weapon: p.weapon,
-    respawnAt: p.respawnAt, nextShotAt: p.nextShotAt };
+    respawnAt: p.respawnAt, nextShotAt: p.nextShotAt, nextHealAt: p.nextHealAt };
 }
 function step() {
   const now = Date.now();
   const dt = Math.min((now - lastTick) / 1000, 0.3);
   lastTick = now;
+  while (drawings.length && drawings[0].expiresAt <= now) drawings.shift();
   for (const [id, p] of players) {
     if (now - p.lastSeen > INACTIVE_MS) { players.delete(id); continue; }
     if (!p.alive) {
@@ -54,6 +60,7 @@ function step() {
         p.x = Math.round(140 + Math.random() * (W - 280));
         p.y = Math.round(140 + Math.random() * (H - 280));
         p.nextShotAt = now + 450;
+        p.nextHealAt = now + 650;
         emit({ type: 'respawn', who: p.id, x: p.x, y: p.y });
       }
       continue;
@@ -100,6 +107,37 @@ function attack(attacker, weaponId, now) {
   return null;
 }
 
+function heal(p, now) {
+  if (!p.alive) return 'Respawning';
+  if (p.hp >= 100) return 'Health already full';
+  if (now < p.nextHealAt) return 'Healing recharging';
+  if (p.mana < HEAL.cost) return 'Not enough mana';
+  p.mana -= HEAL.cost;
+  p.hp = Math.min(100, p.hp + HEAL.amount);
+  p.nextHealAt = now + HEAL.cooldown;
+  emit({ type: 'heal', who: p.id, x: p.x, y: p.y });
+  return null;
+}
+function drawShape(p, action, now) {
+  if (!p.alive) return 'Respawning';
+  if (now - p.lastDrawAt < 140) return 'Drawing too quickly';
+  const shapes = new Set(['pen', 'line', 'rect', 'circle']);
+  if (!shapes.has(action.shape) || !Array.isArray(action.points)) return 'Invalid drawing';
+  const validCount = action.shape === 'pen'
+    ? action.points.length >= 2 && action.points.length <= 48
+    : action.points.length === 2;
+  if (!validCount || !action.points.every(q => Array.isArray(q) && q.length === 2 &&
+    q.every(n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1600))) {
+    return 'Invalid drawing';
+  }
+  const points = action.points.map(q => [Math.round(clamp(q[0], 0, W)), Math.round(clamp(q[1], 0, H))]);
+  drawings.push({ id: ++nextDrawingId, by: p.id, color: p.color,
+    shape: action.shape, points, expiresAt: now + DRAW_TTL_MS });
+  if (drawings.length > 42) drawings.splice(0, drawings.length - 42);
+  p.lastDrawAt = now;
+  return null;
+}
+
 function send(res, code, obj) {
   const body = JSON.stringify(obj);
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8',
@@ -131,12 +169,18 @@ const staticFiles = new Map([
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  const rawPath = url.pathname;
+  if (rawPath === BASE_PATH) {
+    res.writeHead(308, { Location: BASE_PATH + '/' });
+    return res.end();
+  }
+  const route = rawPath.startsWith(BASE_PATH + '/') ? rawPath.slice(BASE_PATH.length) : rawPath;
   try {
-    if (req.method === 'GET' && url.pathname === '/api/health') {
+    if (req.method === 'GET' && route === '/api/health') {
       return send(res, 200, { status: 'ok', protocol: 'http-polling', players: players.size,
         uptime: Math.floor(process.uptime()) });
     }
-    if (req.method === 'POST' && url.pathname === '/api/join') {
+    if (req.method === 'POST' && route === '/api/join') {
       const data = await getJson(req);
       if (players.size >= MAX_PLAYERS) return send(res, 503, { error: 'Arena is full' });
       const name = String(data.name || '').trim().replace(/[^\p{L}\p{N}_ .-]/gu, '').slice(0, 18);
@@ -148,13 +192,14 @@ const server = http.createServer(async (req, res) => {
         x: Math.round(140 + Math.random() * (W - 280)),
         y: Math.round(140 + Math.random() * (H - 280)), hp: 100, mana: 100,
         alive: true, kills: 0, deaths: 0, weapon: 'spark', nextShotAt: 0,
-        respawnAt: 0, lastSeen: Date.now(), lastDamaged: 0, lastAttackSeq: 0 };
+        respawnAt: 0, lastSeen: Date.now(), lastDamaged: 0, lastActionSeq: 0,
+        nextHealAt: 0, lastDrawAt: 0 };
       players.set(id, p);
       emit({ type: 'join', who: p.name, color: p.color });
       return send(res, 200, { id, token, player: publicPlayer(p), eventId: latestEventId,
-        world: { width: W, height: H }, weapons: WEAPONS });
+        world: { width: W, height: H }, weapons: WEAPONS, heal: HEAL });
     }
-    if (req.method === 'POST' && url.pathname === '/api/sync') {
+    if (req.method === 'POST' && route === '/api/sync') {
       const data = await getJson(req);
       const p = validateSession(data);
       if (!p) return send(res, 401, { error: 'Session expired. Rejoin the arena.' });
@@ -167,28 +212,31 @@ const server = http.createServer(async (req, res) => {
       if (Array.isArray(data.actions)) {
         for (const action of data.actions.slice(0, 5)) {
           const seq = Number(action.seq);
-          if (!Number.isSafeInteger(seq) || seq <= p.lastAttackSeq || seq > 1000000000) continue;
-          p.lastAttackSeq = seq;
-          notice = attack(p, action.weapon, now) || notice;
+          if (!Number.isSafeInteger(seq) || seq <= p.lastActionSeq || seq > 1000000000) continue;
+          p.lastActionSeq = seq;
+          const error = action.kind === 'heal' ? heal(p, now)
+            : action.kind === 'draw' ? drawShape(p, action, now)
+            : attack(p, action.weapon, now);
+          notice = error || notice;
         }
       }
       const since = Math.max(0, Number(data.since) || 0);
       return send(res, 200, {
         now, me: publicPlayer(p),
         players: [...players.values()].map(publicPlayer),
-        online: players.size, latestEventId,
+        drawings, online: players.size, latestEventId,
         events: effects.filter(e => e.id > since).slice(-60),
         notice,
       });
     }
-    if (req.method === 'POST' && url.pathname === '/api/leave') {
+    if (req.method === 'POST' && route === '/api/leave') {
       const data = await getJson(req);
       const p = validateSession(data);
       if (p) players.delete(p.id);
       return send(res, 200, { ok: true });
     }
-    if (req.method === 'GET' && staticFiles.has(url.pathname)) {
-      const [file, type] = staticFiles.get(url.pathname);
+    if (req.method === 'GET' && staticFiles.has(route)) {
+      const [file, type] = staticFiles.get(route);
       const body = await fs.readFile(path.join(__dirname, 'public', file));
       res.writeHead(200, { 'Content-Type': type, 'Content-Length': body.length,
         'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });

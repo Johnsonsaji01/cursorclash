@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#080b16">
   <meta name="description" content="CursorClash — multiplayer cursor combat, powered by HTTP polling.">
   <title>CursorClash — The cursor is the weapon.</title>
-  <link rel="stylesheet" href="cursorclash/style.css">
-  <script src="cursorclash/app.js" defer></script>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -43,15 +43,26 @@
             <div class="arena-prompt" id="arenaPrompt"><span class="prompt-cross">✦</span><strong>READY WHEN YOU ARE</strong><span>Join the arena to begin battling.</span></div>
             <div class="death-overlay" id="deathOverlay" hidden><div class="death-icon">◇</div><strong>CURSOR DOWN</strong><span id="respawnText">Respawning in 3s</span></div>
           </div>
-          <div class="arena-bottom-strip"><span><span class="strip-green">●</span> SHARED PLAYFIELD</span><span><kbd>CLICK</kbd> TO FIRE <span class="line-divider">•</span> <kbd>1</kbd> — <kbd>4</kbd> TO SWITCH</span></div>
+          <div class="arena-bottom-strip"><span><span class="strip-green">●</span> SHARED PLAYFIELD</span><span><kbd>CLICK</kbd> FIRE · <kbd>H</kbd> HEAL · <kbd>D</kbd> DRAW · <kbd>1–4</kbd> WEAPONS</span></div>
         </div>
 
+        <div class="creative-toolbar" aria-label="Arena abilities">
+          <button class="ability-btn heal-btn" id="healBtn" type="button" title="Heal 35 health for 25 mana (H)">✚ HEAL <small>+35 HP / 25 MANA</small> <kbd>H</kbd></button>
+          <button class="ability-btn draw-btn" id="drawToggle" type="button" aria-pressed="false" title="Toggle drawing mode (D)">✎ DRAW MODE <kbd>D</kbd></button>
+          <div class="drawing-tools" id="drawingTools" hidden role="group" aria-label="Drawing tool">
+            <button class="draw-tool active" type="button" data-shape="pen" aria-pressed="true">PEN</button>
+            <button class="draw-tool" type="button" data-shape="line" aria-pressed="false">LINE</button>
+            <button class="draw-tool" type="button" data-shape="rect" aria-pressed="false">RECT</button>
+            <button class="draw-tool" type="button" data-shape="circle" aria-pressed="false">CIRCLE</button>
+          </div>
+          <span class="draw-helper" id="drawHelper">Drawings are shared and disappear after 3.5s.</span>
+        </div>
         <div class="player-stats">
           <div class="stat-panel health-panel"><div class="stat-heading"><span><span class="icon-heart">✚</span> INTEGRITY</span><strong id="healthValue">100 <small>/ 100</small></strong></div><div class="meter"><div id="healthBar" class="meter-fill health-fill" style="width:100%"></div></div><div class="stat-foot">CURSOR HEALTH</div></div>
           <div class="stat-panel mana-panel"><div class="stat-heading"><span><span class="icon-spark">✧</span> MANA</span><strong id="manaValue">100 <small>/ 100</small></strong></div><div class="meter"><div id="manaBar" class="meter-fill mana-fill" style="width:100%"></div></div><div class="stat-foot">+10 MANA / SECOND</div></div>
           <div class="stat-panel kda-panel"><div class="stat-heading"><span>YOUR RECORD</span><strong id="kda">0 <small>/</small> 0</strong></div><div class="kda-captions"><span>ELIMINATIONS</span><span>DEATHS</span></div></div>
         </div>
-        <div class="main-footer"><span>MOVE YOUR CURSOR. FIND A TARGET. CLAIM THE ARENA.</span><span>CURSORCLASH <span class="muted">V1.0</span></span></div>
+        <div class="main-footer"><span>MOVE YOUR CURSOR. FIND A TARGET. CLAIM THE ARENA.</span><span>CURSORCLASH <span class="muted">V1.1</span></span></div>
       </section>
 
       <aside class="sidebar">

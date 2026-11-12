@@ -30,6 +30,9 @@ let lastNoticeAt = 0;
 let toastTimer = null;
 let uiUpdatedAt = 0;
 let pointerInside = false;
+let drawingMode = false;
+let drawingShape = 'pen';
+let drawDraft = null;
 const feedItems = [];
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -73,7 +76,7 @@ async function post(path, payload, timeoutMs = 5000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch('/cursorclash' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const response = await fetch(new URL(path.replace(/^\/+/, ''), document.baseURI), { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload), signal: controller.signal, cache: 'no-store' });
     const body = await response.json();
     if (!response.ok) {
@@ -103,6 +106,8 @@ $('joinForm').addEventListener('submit', async event => {
     pendingActions = [];
     feedItems.length = 0;
     visualEffects.length = 0;
+    drawDraft = null;
+    setDrawingMode(false);
     connectionStatus(true);
     $('joinScreen').hidden = true;
     $('arenaPrompt').style.display = 'none';
@@ -131,6 +136,8 @@ async function leave() {
   pendingActions = [];
   view.clear();
   visualEffects = [];
+  drawDraft = null;
+  setDrawingMode(false);
   connectionStatus(false);
   $('joinScreen').hidden = false;
   $('arenaPrompt').style.display = '';
@@ -155,26 +162,93 @@ function mapPointer(e) {
   local.y = clamp((e.clientY - rect.top) / rect.height * H, 12, H - 12);
   $('coordinates').textContent = `[${digits(local.x)}, ${digits(local.y)}]`;
 }
-canvas.addEventListener('pointermove', e => { pointerInside = true; if (session) mapPointer(e); });
+function setDrawingMode(enabled) {
+  drawingMode = enabled;
+  if (!enabled) drawDraft = null;
+  $('drawToggle').classList.toggle('active', enabled);
+  $('drawToggle').setAttribute('aria-pressed', String(enabled));
+  $('drawingTools').hidden = !enabled;
+  $('drawHelper').textContent = enabled ? 'Drag in the arena to draw. Press D to return to combat.'
+    : 'Drawings are shared and disappear after 3.5s.';
+  canvas.classList.toggle('drawing', enabled);
+}
+$('drawToggle').addEventListener('click', () => setDrawingMode(!drawingMode));
+document.querySelectorAll('[data-shape]').forEach(el => el.addEventListener('click', () => {
+  drawingShape = el.dataset.shape;
+  document.querySelectorAll('[data-shape]').forEach(b => {
+    const selected = b.dataset.shape === drawingShape;
+    b.classList.toggle('active', selected);
+    b.setAttribute('aria-pressed', String(selected));
+  });
+}));
+function queueAction(action) {
+  if (!session || !snapshot?.me?.alive || pendingActions.length >= 10) return false;
+  pendingActions.push({ ...action, seq: ++sequence });
+  return true;
+}
+function healSelf() {
+  if (!session || !snapshot?.me?.alive) return;
+  if (snapshot.me.hp >= 100) return showToast('HEALTH ALREADY FULL');
+  if (snapshot.me.mana < 25) return showToast('NEED 25 MANA TO HEAL');
+  if (snapshot.me.nextHealAt > Date.now()) return showToast('HEAL IS RECHARGING');
+  queueAction({ kind: 'heal' });
+}
+$('healBtn').addEventListener('click', healSelf);
+function drawPoint() { return [Math.round(local.x), Math.round(local.y)]; }
+function finishDrawing() {
+  if (!drawDraft) return;
+  if (drawDraft.shape !== 'pen') drawDraft.points[1] = drawPoint();
+  const draft = drawDraft;
+  drawDraft = null;
+  if (draft.points.length < 2 || dist({x:draft.points[0][0],y:draft.points[0][1]},
+    {x:draft.points.at(-1)[0],y:draft.points.at(-1)[1]}) < 4) return;
+  queueAction({ kind: 'draw', shape: draft.shape, points: draft.points });
+}
+canvas.addEventListener('pointermove', e => {
+  pointerInside = true;
+  if (!session) return;
+  mapPointer(e);
+  if (!drawDraft || e.pointerId !== drawDraft.pointerId) return;
+  const pt = drawPoint();
+  if (drawDraft.shape === 'pen') {
+    const last = drawDraft.points.at(-1);
+    if (Math.hypot(pt[0] - last[0], pt[1] - last[1]) >= 7) {
+      if (drawDraft.points.length < 48) drawDraft.points.push(pt);
+      else drawDraft.points[47] = pt;
+    }
+  } else drawDraft.points[1] = pt;
+});
 canvas.addEventListener('pointerenter', () => { pointerInside = true; });
 canvas.addEventListener('pointerleave', () => { pointerInside = false; });
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || !session) return;
   e.preventDefault();
   mapPointer(e);
-  fire();
+  if (drawingMode && snapshot?.me?.alive) {
+    const pt = drawPoint();
+    drawDraft = { pointerId: e.pointerId, shape: drawingShape,
+      points: drawingShape === 'pen' ? [pt] : [pt, pt] };
+    canvas.setPointerCapture(e.pointerId);
+  } else if (!drawingMode) fire();
 });
+canvas.addEventListener('pointerup', e => {
+  if (drawDraft?.pointerId === e.pointerId) { mapPointer(e); finishDrawing(); }
+});
+canvas.addEventListener('pointercancel', () => { drawDraft = null; });
 window.addEventListener('keydown', e => {
+  if (e.repeat) return;
   const tag = document.activeElement?.tagName || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
   if (['1','2','3','4'].includes(e.key)) setWeapon(['spark','lance','nova','phantom'][Number(e.key)-1]);
-  if (e.code === 'Space' && session) { e.preventDefault(); fire(); }
+  if (e.key.toLowerCase() === 'h') healSelf();
+  if (e.key.toLowerCase() === 'd' && session) setDrawingMode(!drawingMode);
+  if (e.key === 'Escape' && drawingMode) setDrawingMode(false);
+  if (e.code === 'Space' && session && !drawingMode) { e.preventDefault(); fire(); }
 });
 function fire() {
-  if (!session || !snapshot?.me?.alive) return;
-  if (pendingActions.length >= 10) return;
-  pendingActions.push({ seq: ++sequence, weapon });
-  visualEffects.push({ localFlash: true, x: local.x, y: local.y, weapon, start: performance.now() });
+  if (queueAction({ kind: 'attack', weapon })) {
+    visualEffects.push({ localFlash: true, x: local.x, y: local.y, weapon, start: performance.now() });
+  }
 }
 
 function addFeed(event) {
@@ -209,6 +283,8 @@ function processEvents(events) {
       visualEffects.push({ ...event, start: performance.now() });
     } else if (event.type === 'kill' || event.type === 'join') {
       addFeed(event);
+    } else if (event.type === 'heal') {
+      visualEffects.push({ ...event, start: performance.now() });
     } else if (event.type === 'respawn') {
       visualEffects.push({ ...event, start: performance.now() });
     }
@@ -250,6 +326,7 @@ function updateUI() {
   $('healthBar').style.width = `${me.hp}%`;
   $('manaBar').style.width = `${me.mana}%`;
   $('kda').innerHTML = `${me.kills} <small>/</small> ${me.deaths}`;
+  $('healBtn').disabled = !me.alive || me.hp >= 100 || me.mana < 25 || me.nextHealAt > Date.now();
   const dead = !me.alive;
   $('deathOverlay').hidden = !dead;
   if (dead) $('respawnText').textContent = `Respawning in ${Math.max(0, Math.ceil((me.respawnAt - Date.now()) / 1000))}s`;
@@ -292,6 +369,31 @@ function circle(x,y,r,color,width=1,alpha=1) {
   ctx.globalAlpha = alpha; ctx.beginPath(); ctx.arc(x,y,Math.max(0,r),0,Math.PI*2);
   ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();ctx.globalAlpha = 1;
 }
+function drawShape(item, alpha = 1) {
+  const points = item.points || [];
+  if (points.length < 2) return;
+  const color = item.color || chosenColor;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = color; ctx.shadowBlur = 8;
+  ctx.beginPath();
+  const [a, b] = points;
+  if (item.shape === 'pen') {
+    ctx.moveTo(a[0], a[1]);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+  } else if (item.shape === 'line') {
+    ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+  } else if (item.shape === 'rect') {
+    ctx.rect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0]-a[0]), Math.abs(b[1]-a[1]));
+  } else if (item.shape === 'circle') {
+    const radius = Math.hypot(b[0]-a[0], b[1]-a[1]);
+    ctx.arc(a[0], a[1], radius, 0, Math.PI*2);
+  }
+  ctx.stroke();ctx.restore();
+}
 function drawGrid(now) {
   ctx.strokeStyle = '#6a8caf'; ctx.lineWidth = .8;
   for(let x=0;x<=W;x+=64) { ctx.globalAlpha = x%256===0?.16:.065; ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
@@ -307,25 +409,25 @@ function drawGrid(now) {
 }
 function drawPlayer(p, own, now) {
   const {x,y,color} = p;
-  if(!p.alive){circle(x,y,28,'#8b98ae',2,.2);return;}
-  ctx.save();ctx.translate(x,y);
-  ctx.shadowColor=color;ctx.shadowBlur=own?25:14;
+  if(!p.alive){circle(x,y,16,'#8b98ae',1.5,.2);return;}
+  ctx.save();ctx.translate(x,y);ctx.scale(.58,.58);
+  ctx.shadowColor=color;ctx.shadowBlur=own?18:10;
   ctx.fillStyle=color;ctx.strokeStyle='#06101a';ctx.lineWidth=3.5;
   ctx.beginPath();ctx.moveTo(-12,-17);ctx.lineTo(-10,26);ctx.lineTo(-1,16);ctx.lineTo(9,35);
   ctx.lineTo(18,30);ctx.lineTo(9,12);ctx.lineTo(24,11);ctx.closePath();ctx.fill();ctx.stroke();
   ctx.shadowBlur=0;
-  if(own){circle(0,0,38,color,1.5,.5+Math.sin(now/350)*.15)}
+  if(own){circle(0,0,28,color,1.5,.5+Math.sin(now/350)*.15)}
   ctx.restore();
   const name=p.name+(own?' [YOU]':'');
-  ctx.font='700 17px ui-monospace, monospace';
+  ctx.font='700 12px ui-monospace, monospace';
   const nameW=ctx.measureText(name).width;
-  const badgeW=nameW+22;
-  const px=clamp(x+23,10,W-badgeW-10),py=clamp(y-35,20,H-35);
-  ctx.fillStyle='#07111de8';ctx.fillRect(px,py-22,badgeW,32);
-  ctx.fillStyle=color;ctx.fillRect(px,py-22,3,32);
-  ctx.fillStyle='#eef5ff';ctx.fillText(name,px+12,py);
-  ctx.fillStyle='#293f53';ctx.fillRect(px,py+14,badgeW,5);
-  ctx.fillStyle='#ff8495';ctx.fillRect(px,py+14,badgeW*(p.hp/100),5);
+  const badgeW=nameW+15;
+  const px=clamp(x+14,8,W-badgeW-8),py=clamp(y-24,18,H-30);
+  ctx.fillStyle='#07111de8';ctx.fillRect(px,py-16,badgeW,23);
+  ctx.fillStyle=color;ctx.fillRect(px,py-16,2,23);
+  ctx.fillStyle='#eef5ff';ctx.fillText(name,px+8,py);
+  ctx.fillStyle='#293f53';ctx.fillRect(px,py+9,badgeW,3);
+  ctx.fillStyle='#ff8495';ctx.fillRect(px,py+9,badgeW*(p.hp/100),3);
 }
 function drawShot(e,age){
   const w=WEAPONS[e.weapon];if(!w)return;
@@ -354,6 +456,12 @@ function draw() {
   ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);
   ctx.clearRect(0,0,W,H);
   drawGrid(now);
+  const currentTime = Date.now();
+  for (const mark of snapshot?.drawings || []) {
+    const timeLeft = mark.expiresAt - currentTime;
+    if (timeLeft > 0) drawShape(mark, Math.min(1, timeLeft / 1800));
+  }
+  if (drawDraft) drawShape({ ...drawDraft, color: chosenColor }, .9);
   const players=createWorldView();
   const me=players.find(p=>p.id===session?.id);
   if(me?.alive){
@@ -372,6 +480,7 @@ function draw() {
     if(e.localFlash)circle(e.x,e.y,4+age*.09,WEAPONS[e.weapon].color,2,1-age/650);
     else if(e.type==='shot')drawShot(e,age);
     else if(e.type==='respawn')circle(e.x,e.y,10+age*.2,'#74f7dc',4,1-age/650);
+    else if(e.type==='heal'){circle(e.x,e.y,17+age*.11,'#74f7dc',3,1-age/650);}
   }
   if(now-uiUpdatedAt>150){uiUpdatedAt=now;updateUI();}
 }
@@ -381,6 +490,6 @@ requestAnimationFrame(draw);
 window.addEventListener('pagehide',()=>{
   if(!session)return;
   const data=JSON.stringify(session);
-  if(navigator.sendBeacon)navigator.sendBeacon('/cursorclash/api/leave',new Blob([data],{type:'application/json'}));
+  if(navigator.sendBeacon)navigator.sendBeacon(new URL('api/leave', document.baseURI),new Blob([data],{type:'application/json'}));
 });
 setWeapon('spark');
