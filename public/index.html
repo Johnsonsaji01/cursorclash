@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b16">
+  <meta name="description" content="CursorClash — multiplayer cursor combat, powered by HTTP polling.">
+  <title>CursorClash — The cursor is the weapon.</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-emblem"><span class="pointer-icon">↗</span></div>
+        <div class="brand-copy"><div class="brand-name">CURSOR<span>CLASH</span><b class="brand-beta">BETA</b></div><small>THE CURSOR IS THE WEAPON.</small></div>
+      </div>
+      <div class="nav-label"><span class="online-dot"></span> GLOBAL ARENA <span class="nav-divider">/</span> <span class="nav-muted">SEASON 01</span></div>
+      <div class="top-right">
+        <span class="protocol"><span class="protocol-glyph">↻</span> HTTP POLLING</span>
+        <button class="icon-button" id="shareBtn" title="Copy invite link" aria-label="Copy invite link"><span>↗</span></button>
+        <button class="profile-chip" id="leaveBtn" title="Leave arena" disabled><span id="chipDot" class="profile-dot"></span><span id="chipName">OFFLINE</span><span class="exit-glyph">⏻</span></button>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="main-column">
+        <div class="section-heading">
+          <div><div class="eyebrow"><span class="live-light"></span> LIVE MULTIPLAYER</div><h1>BATTLE ARENA<span class="heading-slash"> / </span><span class="title-fade">001</span></h1></div>
+          <div class="arena-metrics"><div><span>PLAYERS ONLINE</span><strong id="onlineCount">00</strong></div><div><span>LATENCY</span><strong id="latency">— ms</strong></div></div>
+        </div>
+
+        <div class="arena-frame">
+          <div class="arena-top-strip"><div><span class="tiny-cross">✣</span> CURSORSPACE <span class="muted">/ FREE-FOR-ALL</span></div><div><span class="strip-dot"></span> <span id="arenaConnection">DISCONNECTED</span></div></div>
+          <div class="arena" id="arena">
+            <canvas id="gameCanvas" width="1600" height="900" aria-label="Multiplayer cursor combat arena"></canvas>
+            <div class="arena-corner corner-tl">X: 0000 &nbsp; Y: 0000</div>
+            <div class="arena-corner corner-tr">WORLD_01</div>
+            <div class="arena-corner corner-bl">NO WEBSOCKETS // PURE HTTP</div>
+            <div class="arena-corner corner-br" id="coordinates">[0000, 0000]</div>
+            <div class="arena-center-mark" aria-hidden="true">+</div>
+            <div class="arena-prompt" id="arenaPrompt"><span class="prompt-cross">✦</span><strong>READY WHEN YOU ARE</strong><span>Join the arena to begin battling.</span></div>
+            <div class="death-overlay" id="deathOverlay" hidden><div class="death-icon">◇</div><strong>CURSOR DOWN</strong><span id="respawnText">Respawning in 3s</span></div>
+          </div>
+          <div class="arena-bottom-strip"><span><span class="strip-green">●</span> SHARED PLAYFIELD</span><span><kbd>CLICK</kbd> TO FIRE <span class="line-divider">•</span> <kbd>1</kbd> — <kbd>4</kbd> TO SWITCH</span></div>
+        </div>
+
+        <div class="player-stats">
+          <div class="stat-panel health-panel"><div class="stat-heading"><span><span class="icon-heart">✚</span> INTEGRITY</span><strong id="healthValue">100 <small>/ 100</small></strong></div><div class="meter"><div id="healthBar" class="meter-fill health-fill" style="width:100%"></div></div><div class="stat-foot">CURSOR HEALTH</div></div>
+          <div class="stat-panel mana-panel"><div class="stat-heading"><span><span class="icon-spark">✧</span> MANA</span><strong id="manaValue">100 <small>/ 100</small></strong></div><div class="meter"><div id="manaBar" class="meter-fill mana-fill" style="width:100%"></div></div><div class="stat-foot">+10 MANA / SECOND</div></div>
+          <div class="stat-panel kda-panel"><div class="stat-heading"><span>YOUR RECORD</span><strong id="kda">0 <small>/</small> 0</strong></div><div class="kda-captions"><span>ELIMINATIONS</span><span>DEATHS</span></div></div>
+        </div>
+        <div class="main-footer"><span>MOVE YOUR CURSOR. FIND A TARGET. CLAIM THE ARENA.</span><span>CURSORCLASH <span class="muted">V1.0</span></span></div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="side-panel weapons-panel"><div class="panel-heading"><div><span class="eyebrow">LOADOUT</span><h2>YOUR ARSENAL</h2></div><span class="panel-index">01 / 03</span></div>
+          <p class="section-note">Select a weapon to spend mana with every attack.</p>
+          <div class="weapon-grid" id="weaponGrid">
+            <button class="weapon selected" data-weapon="spark"><span class="weapon-number">01 <span class="weapon-key">[1]</span></span><span class="weapon-symbol spark-symbol">✦</span><span class="weapon-name">SPARK</span><span class="weapon-details"><b>10</b> MANA <span class="weapon-damage">14 DMG</span></span><span class="weapon-desc">Quick close-range zap</span><span class="weapon-meter"><span style="width:24%"></span></span></button>
+            <button class="weapon" data-weapon="lance"><span class="weapon-number">02 <span class="weapon-key">[2]</span></span><span class="weapon-symbol lance-symbol">⌁</span><span class="weapon-name">LANCE</span><span class="weapon-details"><b>24</b> MANA <span class="weapon-damage">34 DMG</span></span><span class="weapon-desc">Long-range precision</span><span class="weapon-meter"><span style="width:50%"></span></span></button>
+            <button class="weapon" data-weapon="nova"><span class="weapon-number">03 <span class="weapon-key">[3]</span></span><span class="weapon-symbol nova-symbol">◉</span><span class="weapon-name">NOVA</span><span class="weapon-details"><b>36</b> MANA <span class="weapon-damage">27 DMG</span></span><span class="weapon-desc">Hits nearby rivals</span><span class="weapon-meter"><span style="width:70%"></span></span></button>
+            <button class="weapon" data-weapon="phantom"><span class="weapon-number">04 <span class="weapon-key">[4]</span></span><span class="weapon-symbol phantom-symbol">⌖</span><span class="weapon-name">PHANTOM</span><span class="weapon-details"><b>50</b> MANA <span class="weapon-damage">70 DMG</span></span><span class="weapon-desc">Heavy single-target strike</span><span class="weapon-meter"><span style="width:100%"></span></span></button>
+          </div>
+          <div class="selected-weapon"><span>ACTIVE WEAPON</span><strong id="selectedWeaponLabel">✦ SPARK</strong></div>
+        </section>
+        <section class="side-panel leaderboard-panel"><div class="panel-heading"><div><span class="eyebrow">LIVE STANDINGS</span><h2>LEADERBOARD</h2></div><span class="panel-index">02 / 03</span></div>
+          <div class="leaderboard-header"><span>RANK / PLAYER</span><span>K</span><span>D</span></div>
+          <div id="leaderboard" class="leaderboard-content"><div class="empty-board">No cursors in the arena yet.</div></div>
+        </section>
+        <section class="side-panel activity-panel"><div class="panel-heading"><div><span class="eyebrow">ARENA ACTIVITY</span><h2>LIVE FEED</h2></div><span class="panel-index">03 / 03</span></div><div id="eventFeed" class="event-feed"><div class="empty-activity">Waiting for first contact...</div></div></section>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="join-screen" id="joinScreen">
+    <div class="join-orb join-orb-one"></div><div class="join-orb join-orb-two"></div>
+    <div class="join-modal">
+      <div class="modal-top"><div class="modal-mark">↗</div><span>INITIALISE CONNECTION <span class="blink">_</span></span></div>
+      <div class="hero-art" aria-hidden="true"><span class="hero-grid"></span><span class="hero-ring hero-ring-outer"></span><span class="hero-ring hero-ring-inner"></span><span class="hero-pointer hero-pointer-one">↗</span><span class="hero-pointer hero-pointer-two">↗</span><span class="hero-pointer hero-pointer-three">↗</span><span class="hero-center">+</span></div>
+      <div class="modal-copy"><div class="eyebrow"><span class="online-dot"></span> WELCOME TO THE ARENA</div><h2>EVERY CURSOR<br>IS A <em>CONTENDER.</em></h2><p>One shared arena. Four weapons. One hundred mana.<br>Outplay every other cursor on the screen.</p></div>
+      <form id="joinForm" class="join-form"><label for="nickname">CHOOSE YOUR CALLSIGN</label><input id="nickname" name="nickname" maxlength="18" autocomplete="nickname" placeholder="Enter your name" required minlength="2" spellcheck="false">
+        <span class="color-label">CHOOSE YOUR CURSOR COLOR</span><div class="color-options" id="colorOptions"><button type="button" aria-label="Mint" class="color-choice active" data-color="#74f7dc" style="--swatch:#74f7dc"></button><button type="button" aria-label="Violet" class="color-choice" data-color="#a995ff" style="--swatch:#a995ff"></button><button type="button" aria-label="Pink" class="color-choice" data-color="#ff87b8" style="--swatch:#ff87b8"></button><button type="button" aria-label="Gold" class="color-choice" data-color="#ffcd75" style="--swatch:#ffcd75"></button><button type="button" aria-label="Blue" class="color-choice" data-color="#79b8ff" style="--swatch:#79b8ff"></button><button type="button" aria-label="Lime" class="color-choice" data-color="#e5fa87" style="--swatch:#e5fa87"></button></div>
+        <button type="submit" class="join-button" id="joinButton"><span>ENTER THE ARENA</span><span>↗</span></button><div class="join-error" id="joinError" role="alert"></div></form>
+      <div class="modal-bottom"><span><span class="online-dot"></span> SERVER ONLINE</span><span>NO LOGIN REQUIRED &nbsp; • &nbsp; HTTP ONLY</span></div>
+    </div>
+  </div>
+</body>
+</html>
