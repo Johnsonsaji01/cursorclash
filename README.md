@@ -1,90 +1,43 @@
-# CursorClash v1.1
+# CursorClash
 
-A playable, shared-arena multiplayer cursor game. Every player can see the others' cursors, move around one page, select weapons, attack opponents, and compete for eliminations. All players have **100 health and 100 mana**. Mana regenerates by **10 per second**. Health regenerates by 3 per second after 5 seconds without taking damage.
+Real-time multiplayer cursor battle. Everyone is a cursor: hit nearby cursors, heal when low, and draw shapes that fade after a few seconds.
 
-**No WebSockets, Socket.IO or Server-Sent Events** are used anywhere. The browser sends a JSON `POST /api/sync` using HTTP `fetch()` every 75 ms. Each response contains the authoritative player positions and game events. Other players' movement is interpolated in the browser for smoother animation.
-
-
-## New in v1.1
-
-- Smaller in-arena cursors and compact name/HP labels.
-- Press **H** or click **HEAL** to recover **35 HP** for **25 mana** (4.5-second cooldown). Existing slow regeneration is unchanged.
-- Press **D** or click **DRAW MODE** to switch from combat to drawing. Select **PEN**, **LINE**, **RECT**, or **CIRCLE**, then drag across the arena. Drawings are visible to every player using the normal HTTP polling, and disappear automatically **3.5 seconds** after completion (fading over the final 1.8 seconds). Press **D** or **Esc** to leave drawing mode.
-- Drawings are restricted to 48 points per stroke, rate limited and capped server-side. No WebSockets were added.
-- API supports both root and `/cursorclash/` paths so the same Docker image works behind Coolify with or without stripping the path prefix. Keep a trailing slash on the public URL.
-
-## Play locally
-
-Requirements: Node.js 20 or newer. No third-party packages or npm install are needed.
-
-```bash
-node server.js
-```
-
-Open **http://localhost:3000**. To test multiplayer, open the URL in two browser tabs. For other computers on the same network, use `http://YOUR_SERVER_IP:3000` and ensure port 3000 is reachable.
-
-## Coolify / Docker deployment
-
-The included `Dockerfile` is ready for a Git-based Coolify deployment:
-
-1. Create a Git repository and upload the files in this folder, preserving the `public/` directory.
-2. In Coolify, choose **New Resource → Application → your Git repository** and select **Dockerfile** as the build pack.
-3. Set the application port to **3000** (the app listens on `0.0.0.0:3000` by default).
-4. For a shared hostname, configure Coolify's HTTP routing to match `Host(gmg.perplexnet.co.uk)` with the `/cursorclash` path prefix and **preserve the prefix** (do not strip it). The game serves both `/` and `/cursorclash/`, including its prefixed API. Ensure a different application serving `/` does not capture the more specific `/cursorclash` route.
-5. Assign your domain and deploy. Coolify's reverse proxy can forward normal HTTP requests to the container; no WebSocket configuration is required.
-6. Open the domain from two browsers to play together. HTTPS is recommended for public deployments.
-
-The app has a `GET /api/health` endpoint for health checks, also available at `GET /cursorclash/api/health`. It redirects `/cursorclash` to `/cursorclash/` to keep relative asset URLs correct. The desired shared-domain URL is `https://gmg.perplexnet.co.uk/cursorclash/`.
-
-Alternatively, build and run manually:
-
-```bash
-docker build -t cursorclash .
-docker run -d --name cursorclash -p 3000:3000 --restart unless-stopped cursorclash
-```
+- Plain HTTP polling, **no WebSockets**, **no npm dependencies** (Node 20+).
+- The game fills the whole browser window; the shared arena is stretched to fit every player's window.
+- Served at `/` and also under `/cursorclash/` (with or without a reverse proxy that strips the prefix).
 
 ## Controls
 
-- Move your mouse or touch the playfield to move your cursor.
-- **Click/tap** to attack; the server selects the nearest living opponent inside your weapon's range (or everyone nearby for Nova).
-- Press **1**, **2**, **3**, **4** to switch weapons; **Space** also attacks.
-- The server enforces mana costs, damage, cooldowns, eliminations, and 3-second respawns.
+| Input | Action |
+| --- | --- |
+| Click / Space | Attack everything within range of your cursor (5 mana) |
+| H / right-click | Heal 35 HP for 25 mana, 4.5 s cooldown |
+| D | Toggle draw mode (drawings are visible to everyone and fade after 3.5 s) |
+| 1 / 2 / 3 / 4 | Freehand / line / box / circle |
+| Esc | Leave draw mode |
 
-| Weapon | Mana | Damage | Range (game units) | Cooldown | Effect |
-|:--|--:|--:|--:|--:|:--|
-| Spark | 10 | 14 | 250 | 280 ms | Fast strike to nearest enemy |
-| Lance | 24 | 34 | 380 | 780 ms | Longer-range precision strike |
-| Nova | 36 | 27 | 155 | 1050 ms | Area effect: damages all enemies in range |
-| Phantom | 50 | 70 | 520 | 1550 ms | High-damage long-range strike |
+Touch devices get Heal / Draw / Shape buttons; tapping attacks.
 
-An attack consumes mana even if there is no opponent in range. If a weapon is on cooldown or you lack mana, the server rejects the attack without spending mana. Weapons do not cause graphic violence; effects are abstract, glowing cursor lines/rings.
-
-## Architecture
+## Run
 
 ```
-Browser A ── HTTP POST /api/sync ──┐
-Browser B ── HTTP POST /api/sync ──┤  Node.js server
-Browser C ── HTTP POST /api/sync ──┘  authoritative game state in RAM
+npm start            # http://localhost:3000   (PORT env var changes the port)
+npm test             # two-client multiplayer tests
 ```
 
-Routes:
-- `GET /` — game
-- `POST /api/join` — create a player and issue a session token
-- `POST /api/sync` — submit cursor position, selected weapon, queued attacks, and last event ID; receive world snapshot and new events
-- `POST /api/leave` — remove a player
-- `GET /api/health` — server status
+## Deploy (Coolify, Dockerfile build pack)
 
-The server uses the built-in `node:http` module. No external backend services are required. Sessions and scores exist only in memory, so restarting the server resets the arena. Players absent for 15 seconds are removed. The app is intended for a **single running server instance** (do not horizontally scale without adding shared session/game state). There is a default limit of 60 simultaneous players, but sustained performance depends on server/network capacity, especially with 75 ms polling.
+Point the application at this repository, build with the included `Dockerfile`, and set the exposed port to `3000`. `GET /healthz` returns `ok` for health checks. The game keeps all state in memory, so run a single instance.
 
-## Configuration
+## How it works
 
-- `PORT`: default `3000`
-- `HOST`: default `0.0.0.0`
-- Player cap, arena size, regen and weapon stats can be changed near the top of `server.js` (and matching client weapon display data in `public/app.js`/`index.html`).
+- `POST /api/join` creates a player and returns a full snapshot.
+- `POST /api/sync` (about 18 times a second per player) sends your cursor position and queued actions (attack, heal, drawing points). The response contains every player, your cooldowns, and any events since your last sync.
+- The server is authoritative for damage, mana, healing, cooldowns, respawns (2.2 s, then 1.5 s of spawn protection) and drawing lifetime.
+- Actions carry increasing ids, so a retried request never applies twice. Players who stop polling for 8 s are removed; a client that was dropped rejoins automatically.
 
-## Notes
+## Optional: fill the arena with test players
 
-- No accounts, chat, authentication passwords, cookies or database.
-- Player names are validated and UI player names are inserted as text, not HTML.
-- Session tokens prevent other clients from simply impersonating a player by ID.
-- The game is a starting point for private or small public play; production-scale hosting would benefit from stronger API rate-limiting, server-side movement validation, and monitoring.
+```
+node tools/bot.js http://localhost:3000 5      # five wandering bots
+```

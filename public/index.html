@@ -1,103 +1,584 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#080b16">
-  <meta name="description" content="CursorClash — multiplayer cursor combat, powered by HTTP polling.">
-  <title>CursorClash — The cursor is the weapon.</title>
-  <link rel="stylesheet" href="./style.css">
-  <script src="./app.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>CursorClash</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6 3v22l6-5 4 9 4-2-4-9h8z' fill='%23ffd84d' stroke='%23000' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0d1117; color: #e6edf3;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-user-select: none; user-select: none; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
+  body.playing canvas { cursor: none; }
+
+  #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(13, 17, 23, .86); z-index: 5; }
+  #menu.hidden { display: none; }
+  .card { width: min(420px, 90vw); padding: 28px 28px 22px; border-radius: 16px; background: #161b22;
+    border: 1px solid #30363d; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .card h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: .5px; }
+  .card h1 span { color: #ffd84d; }
+  .card p { margin: 0 0 18px; color: #8b949e; font-size: 14px; line-height: 1.45; }
+  .card input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; border-radius: 10px;
+    border: 1px solid #30363d; background: #0d1117; color: #e6edf3; outline: none; -webkit-user-select: text; user-select: text; }
+  .card input:focus { border-color: #ffd84d; }
+  .card button { width: 100%; margin-top: 12px; padding: 12px; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px;
+    background: #ffd84d; color: #1b1500; cursor: pointer; }
+  .card button:disabled { opacity: .6; cursor: default; }
+  #err { min-height: 18px; margin-top: 10px; font-size: 13px; color: #ff7b72; }
+  .keys { margin-top: 14px; font-size: 12.5px; color: #8b949e; line-height: 1.7; }
+  .keys b { color: #e6edf3; font-weight: 600; }
+
+  #banner { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px;
+    background: rgba(255, 123, 114, .92); color: #1b0b09; font-weight: 700; font-size: 13px; z-index: 4; display: none; }
+
+  #touch { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 10px; z-index: 4; }
+  #touch button { padding: 12px 18px; font-size: 15px; font-weight: 700; border-radius: 12px; border: 1px solid #30363d;
+    background: rgba(22, 27, 34, .9); color: #e6edf3; }
+  #touch button.on { background: #ffd84d; color: #1b1500; border-color: #ffd84d; }
+</style>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-emblem"><span class="pointer-icon">↗</span></div>
-        <div class="brand-copy"><div class="brand-name">CURSOR<span>CLASH</span><b class="brand-beta">BETA</b></div><small>THE CURSOR IS THE WEAPON.</small></div>
-      </div>
-      <div class="nav-label"><span class="online-dot"></span> GLOBAL ARENA <span class="nav-divider">/</span> <span class="nav-muted">SEASON 01</span></div>
-      <div class="top-right">
-        <span class="protocol"><span class="protocol-glyph">↻</span> HTTP POLLING</span>
-        <button class="icon-button" id="shareBtn" title="Copy invite link" aria-label="Copy invite link"><span>↗</span></button>
-        <button class="profile-chip" id="leaveBtn" title="Leave arena" disabled><span id="chipDot" class="profile-dot"></span><span id="chipName">OFFLINE</span><span class="exit-glyph">⏻</span></button>
-      </div>
-    </header>
+<canvas id="c"></canvas>
 
-    <main class="dashboard">
-      <section class="main-column">
-        <div class="section-heading">
-          <div><div class="eyebrow"><span class="live-light"></span> LIVE MULTIPLAYER</div><h1>BATTLE ARENA<span class="heading-slash"> / </span><span class="title-fade">001</span></h1></div>
-          <div class="arena-metrics"><div><span>PLAYERS ONLINE</span><strong id="onlineCount">00</strong></div><div><span>LATENCY</span><strong id="latency">— ms</strong></div></div>
-        </div>
-
-        <div class="arena-frame">
-          <div class="arena-top-strip"><div><span class="tiny-cross">✣</span> CURSORSPACE <span class="muted">/ FREE-FOR-ALL</span></div><div><span class="strip-dot"></span> <span id="arenaConnection">DISCONNECTED</span></div></div>
-          <div class="arena" id="arena">
-            <canvas id="gameCanvas" width="1600" height="900" aria-label="Multiplayer cursor combat arena"></canvas>
-            <div class="arena-corner corner-tl">X: 0000 &nbsp; Y: 0000</div>
-            <div class="arena-corner corner-tr">WORLD_01</div>
-            <div class="arena-corner corner-bl">NO WEBSOCKETS // PURE HTTP</div>
-            <div class="arena-corner corner-br" id="coordinates">[0000, 0000]</div>
-            <div class="arena-center-mark" aria-hidden="true">+</div>
-            <div class="arena-prompt" id="arenaPrompt"><span class="prompt-cross">✦</span><strong>READY WHEN YOU ARE</strong><span>Join the arena to begin battling.</span></div>
-            <div class="death-overlay" id="deathOverlay" hidden><div class="death-icon">◇</div><strong>CURSOR DOWN</strong><span id="respawnText">Respawning in 3s</span></div>
-          </div>
-          <div class="arena-bottom-strip"><span><span class="strip-green">●</span> SHARED PLAYFIELD</span><span><kbd>CLICK</kbd> FIRE · <kbd>H</kbd> HEAL · <kbd>D</kbd> DRAW · <kbd>1–4</kbd> WEAPONS</span></div>
-        </div>
-
-        <div class="creative-toolbar" aria-label="Arena abilities">
-          <button class="ability-btn heal-btn" id="healBtn" type="button" title="Heal 35 health for 25 mana (H)">✚ HEAL <small>+35 HP / 25 MANA</small> <kbd>H</kbd></button>
-          <button class="ability-btn draw-btn" id="drawToggle" type="button" aria-pressed="false" title="Toggle drawing mode (D)">✎ DRAW MODE <kbd>D</kbd></button>
-          <div class="drawing-tools" id="drawingTools" hidden role="group" aria-label="Drawing tool">
-            <button class="draw-tool active" type="button" data-shape="pen" aria-pressed="true">PEN</button>
-            <button class="draw-tool" type="button" data-shape="line" aria-pressed="false">LINE</button>
-            <button class="draw-tool" type="button" data-shape="rect" aria-pressed="false">RECT</button>
-            <button class="draw-tool" type="button" data-shape="circle" aria-pressed="false">CIRCLE</button>
-          </div>
-          <span class="draw-helper" id="drawHelper">Drawings are shared and disappear after 3.5s.</span>
-        </div>
-        <div class="player-stats">
-          <div class="stat-panel health-panel"><div class="stat-heading"><span><span class="icon-heart">✚</span> INTEGRITY</span><strong id="healthValue">100 <small>/ 100</small></strong></div><div class="meter"><div id="healthBar" class="meter-fill health-fill" style="width:100%"></div></div><div class="stat-foot">CURSOR HEALTH</div></div>
-          <div class="stat-panel mana-panel"><div class="stat-heading"><span><span class="icon-spark">✧</span> MANA</span><strong id="manaValue">100 <small>/ 100</small></strong></div><div class="meter"><div id="manaBar" class="meter-fill mana-fill" style="width:100%"></div></div><div class="stat-foot">+10 MANA / SECOND</div></div>
-          <div class="stat-panel kda-panel"><div class="stat-heading"><span>YOUR RECORD</span><strong id="kda">0 <small>/</small> 0</strong></div><div class="kda-captions"><span>ELIMINATIONS</span><span>DEATHS</span></div></div>
-        </div>
-        <div class="main-footer"><span>MOVE YOUR CURSOR. FIND A TARGET. CLAIM THE ARENA.</span><span>CURSORCLASH <span class="muted">V1.1</span></span></div>
-      </section>
-
-      <aside class="sidebar">
-        <section class="side-panel weapons-panel"><div class="panel-heading"><div><span class="eyebrow">LOADOUT</span><h2>YOUR ARSENAL</h2></div><span class="panel-index">01 / 03</span></div>
-          <p class="section-note">Select a weapon to spend mana with every attack.</p>
-          <div class="weapon-grid" id="weaponGrid">
-            <button class="weapon selected" data-weapon="spark"><span class="weapon-number">01 <span class="weapon-key">[1]</span></span><span class="weapon-symbol spark-symbol">✦</span><span class="weapon-name">SPARK</span><span class="weapon-details"><b>10</b> MANA <span class="weapon-damage">14 DMG</span></span><span class="weapon-desc">Quick close-range zap</span><span class="weapon-meter"><span style="width:24%"></span></span></button>
-            <button class="weapon" data-weapon="lance"><span class="weapon-number">02 <span class="weapon-key">[2]</span></span><span class="weapon-symbol lance-symbol">⌁</span><span class="weapon-name">LANCE</span><span class="weapon-details"><b>24</b> MANA <span class="weapon-damage">34 DMG</span></span><span class="weapon-desc">Long-range precision</span><span class="weapon-meter"><span style="width:50%"></span></span></button>
-            <button class="weapon" data-weapon="nova"><span class="weapon-number">03 <span class="weapon-key">[3]</span></span><span class="weapon-symbol nova-symbol">◉</span><span class="weapon-name">NOVA</span><span class="weapon-details"><b>36</b> MANA <span class="weapon-damage">27 DMG</span></span><span class="weapon-desc">Hits nearby rivals</span><span class="weapon-meter"><span style="width:70%"></span></span></button>
-            <button class="weapon" data-weapon="phantom"><span class="weapon-number">04 <span class="weapon-key">[4]</span></span><span class="weapon-symbol phantom-symbol">⌖</span><span class="weapon-name">PHANTOM</span><span class="weapon-details"><b>50</b> MANA <span class="weapon-damage">70 DMG</span></span><span class="weapon-desc">Heavy single-target strike</span><span class="weapon-meter"><span style="width:100%"></span></span></button>
-          </div>
-          <div class="selected-weapon"><span>ACTIVE WEAPON</span><strong id="selectedWeaponLabel">✦ SPARK</strong></div>
-        </section>
-        <section class="side-panel leaderboard-panel"><div class="panel-heading"><div><span class="eyebrow">LIVE STANDINGS</span><h2>LEADERBOARD</h2></div><span class="panel-index">02 / 03</span></div>
-          <div class="leaderboard-header"><span>RANK / PLAYER</span><span>K</span><span>D</span></div>
-          <div id="leaderboard" class="leaderboard-content"><div class="empty-board">No cursors in the arena yet.</div></div>
-        </section>
-        <section class="side-panel activity-panel"><div class="panel-heading"><div><span class="eyebrow">ARENA ACTIVITY</span><h2>LIVE FEED</h2></div><span class="panel-index">03 / 03</span></div><div id="eventFeed" class="event-feed"><div class="empty-activity">Waiting for first contact...</div></div></section>
-      </aside>
-    </main>
-  </div>
-
-  <div class="toast" id="toast" role="status"></div>
-
-  <div class="join-screen" id="joinScreen">
-    <div class="join-orb join-orb-one"></div><div class="join-orb join-orb-two"></div>
-    <div class="join-modal">
-      <div class="modal-top"><div class="modal-mark">↗</div><span>INITIALISE CONNECTION <span class="blink">_</span></span></div>
-      <div class="hero-art" aria-hidden="true"><span class="hero-grid"></span><span class="hero-ring hero-ring-outer"></span><span class="hero-ring hero-ring-inner"></span><span class="hero-pointer hero-pointer-one">↗</span><span class="hero-pointer hero-pointer-two">↗</span><span class="hero-pointer hero-pointer-three">↗</span><span class="hero-center">+</span></div>
-      <div class="modal-copy"><div class="eyebrow"><span class="online-dot"></span> WELCOME TO THE ARENA</div><h2>EVERY CURSOR<br>IS A <em>CONTENDER.</em></h2><p>One shared arena. Four weapons. One hundred mana.<br>Outplay every other cursor on the screen.</p></div>
-      <form id="joinForm" class="join-form"><label for="nickname">CHOOSE YOUR CALLSIGN</label><input id="nickname" name="nickname" maxlength="18" autocomplete="nickname" placeholder="Enter your name" required minlength="2" spellcheck="false">
-        <span class="color-label">CHOOSE YOUR CURSOR COLOR</span><div class="color-options" id="colorOptions"><button type="button" aria-label="Mint" class="color-choice active" data-color="#74f7dc" style="--swatch:#74f7dc"></button><button type="button" aria-label="Violet" class="color-choice" data-color="#a995ff" style="--swatch:#a995ff"></button><button type="button" aria-label="Pink" class="color-choice" data-color="#ff87b8" style="--swatch:#ff87b8"></button><button type="button" aria-label="Gold" class="color-choice" data-color="#ffcd75" style="--swatch:#ffcd75"></button><button type="button" aria-label="Blue" class="color-choice" data-color="#79b8ff" style="--swatch:#79b8ff"></button><button type="button" aria-label="Lime" class="color-choice" data-color="#e5fa87" style="--swatch:#e5fa87"></button></div>
-        <button type="submit" class="join-button" id="joinButton"><span>ENTER THE ARENA</span><span>↗</span></button><div class="join-error" id="joinError" role="alert"></div></form>
-      <div class="modal-bottom"><span><span class="online-dot"></span> SERVER ONLINE</span><span>NO LOGIN REQUIRED &nbsp; • &nbsp; HTTP ONLY</span></div>
+<div id="menu">
+  <form class="card" id="joinForm" autocomplete="off">
+    <h1>Cursor<span>Clash</span></h1>
+    <p>Everyone is a cursor. Click to hit nearby cursors, heal when you're low, and scribble messages that fade away.</p>
+    <input id="nameInput" maxlength="16" placeholder="Your name" spellcheck="false">
+    <button id="playBtn" type="submit">Play</button>
+    <div id="err"></div>
+    <div class="keys">
+      <b>Click</b> / <b>Space</b> attack &nbsp;·&nbsp; <b>H</b> / right-click heal<br>
+      <b>D</b> draw mode &nbsp;·&nbsp; <b>1–4</b> freehand, line, box, circle &nbsp;·&nbsp; <b>Esc</b> exit draw
     </div>
-  </div>
+  </form>
+</div>
+
+<div id="banner">Reconnecting…</div>
+<div id="touch">
+  <button id="bHeal">Heal</button>
+  <button id="bDraw">Draw</button>
+  <button id="bShape">Free</button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Canvas / view ----------
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, DPR = 1, sx = 1, sy = 1, cs = 0.58;
+  let cfg = { W: 1600, H: 900, MAX_HP: 100, MAX_MANA: 100, ATTACK_COST: 5, ATTACK_RADIUS: 52, ATTACK_CD: 0.32,
+    HEAL_COST: 25, HEAL_CD: 4.5, HEAL_AMOUNT: 35, DRAW_FADE: 3.5, MAX_STROKE_POINTS: 400, MAX_POINTS_PER_ACTION: 60, MAX_ACTIONS: 24 };
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // The shared world is stretched over the whole window so the arena always fills it.
+    sx = W / cfg.W; sy = H / cfg.H;
+    cs = Math.max(0.6, Math.min(1.5, Math.sqrt(sx * sy))) * 0.58;   // cursor size (small, as in v1.1)
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Base path (works at / and at /cursorclash/) ----------
+  const BASE = (() => {
+    let p = location.pathname;
+    if (!p.endsWith('/')) {
+      const last = p.split('/').pop();
+      p = last.indexOf('.') >= 0 ? p.slice(0, p.length - last.length) : p + '/';
+    }
+    return p;
+  })();
+
+  // ---------- State ----------
+  let me = null;                          // {id, token, name, color}
+  let seq = 0, rv = 0;
+  const roster = new Map();               // id -> {id, name, color, kills, deaths}
+  const players = new Map();              // id -> {id, x, y, rx, ry, hp, mana, dead, shield}
+  let you = { ac: 0, hc: 0, rs: 0, rcv: 0 };
+  const strokes = new Map();              // key -> {key, owner, color, shape, pts, done, doneAt}
+  const rings = [], floaters = [], feed = [];
+  const mouse = { x: 800, y: 450 };
+  let drawMode = false, shape = 'free', myStroke = null, strokeCounter = 0;
+  let actions = [], aidCounter = 0;
+  let running = false, failures = 0, rtt = 0, lastSyncStart = 0, wakeFn = null;
+  let hurt = 0, manaFlash = 0;
+  let banner = '';
+
+  const SHAPES = ['free', 'line', 'rect', 'circle'];
+  const SHAPE_NAMES = { free: 'Freehand', line: 'Line', rect: 'Box', circle: 'Circle' };
+  const nowMs = () => performance.now();
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  function colorOf(id) { const r = roster.get(id); return r ? r.color : '#aaaaaa'; }
+  function nameOf(id) { const r = roster.get(id); return r ? r.name : '?'; }
+  function remaining(v) { return Math.max(0, v - (nowMs() - you.rcv) / 1000); }
+  function myState() { return me ? players.get(me.id) : null; }
+  function addFeed(msg, color) { feed.unshift({ msg, color: color || '#e6edf3', t: nowMs() }); if (feed.length > 6) feed.pop(); }
+
+  // ---------- Networking (HTTP polling) ----------
+  const SYNC_MS = 55;
+  const sleep = ms => new Promise(r => { const id = setTimeout(r, ms); wakeFn = () => { clearTimeout(id); r(); }; });
+  function kick() { if (wakeFn && nowMs() - lastSyncStart > 30) wakeFn(); }
+
+  async function post(route, body, timeoutMs) {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), timeoutMs || 4000);
+    try {
+      const res = await fetch(BASE + 'api/' + route, {
+        method: 'POST', body: JSON.stringify(body), cache: 'no-store', signal: ctl.signal,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      let data = null;
+      try { data = await res.json(); } catch (e) { /* ignore */ }
+      return { status: res.status, data };
+    } finally { clearTimeout(to); }
+  }
+
+  function resetWorld() {
+    roster.clear(); players.clear(); strokes.clear();
+    rings.length = 0; floaters.length = 0;
+    actions = []; myStroke = null; seq = 0; rv = 0;
+  }
+
+  async function join(name) {
+    const { status, data } = await post('join', { name });
+    if (status !== 200 || !data) throw new Error((data && data.error) || 'Could not join (HTTP ' + status + ')');
+    resetWorld();
+    me = { id: data.id, token: data.token, name: data.name, color: data.color };
+    cfg = Object.assign(cfg, data.cfg);
+    resize();
+    applyState(data);
+    return data;
+  }
+
+  function applyState(d) {
+    seq = d.seq;
+    if (d.roster) {
+      roster.clear();
+      for (const r of d.roster) roster.set(r[0], { id: r[0], name: r[1], color: r[2], kills: r[3], deaths: r[4] });
+      rv = d.rv;
+    }
+    if (d.full && d.strokes) {
+      for (const [k, s] of [...strokes]) if (s.owner !== me.id) strokes.delete(k);
+      for (const s of d.strokes) {
+        if (s.owner === me.id) continue;
+        if (s.age > cfg.DRAW_FADE) continue;
+        strokes.set(s.key, { key: s.key, owner: s.owner, color: s.c, shape: s.sh, pts: s.pts.slice(),
+          done: s.age >= 0, doneAt: s.age >= 0 ? nowMs() - s.age * 1000 : 0 });
+      }
+    }
+    const seen = new Set();
+    for (const p of d.players) {
+      const id = p[0]; seen.add(id);
+      let o = players.get(id);
+      if (!o) { o = { id, x: p[1], y: p[2], rx: p[1], ry: p[2] }; players.set(id, o); }
+      o.x = p[1]; o.y = p[2]; o.hp = p[3]; o.mana = p[4]; o.dead = !!p[5]; o.shield = !!p[6];
+    }
+    for (const id of [...players.keys()]) if (!seen.has(id)) players.delete(id);
+    if (d.you) you = { ac: d.you.ac, hc: d.you.hc, rs: d.you.rs, rcv: nowMs() };
+    for (const ev of d.events || []) applyEvent(ev);
+  }
+
+  function applyEvent(ev) {
+    const mine = me && ev.id === me.id;
+    switch (ev.e) {
+      case 'atk':
+        if (!mine) rings.push({ x: ev.x, y: ev.y, r: 6, max: cfg.ATTACK_RADIUS, t: nowMs(), life: 250, color: colorOf(ev.id), kind: 'atk' });
+        break;
+      case 'hit':
+        floaters.push({ x: ev.x, y: ev.y - 14, text: '-' + ev.dmg, color: '#ff6b6b', t: nowMs() });
+        if (mine) hurt = 1;
+        break;
+      case 'heal':
+        rings.push({ x: ev.x, y: ev.y, r: 4, max: 34, t: nowMs(), life: 600, color: '#5dff9a', kind: 'heal' });
+        floaters.push({ x: ev.x, y: ev.y - 14, text: '+' + ev.amt, color: '#5dff9a', t: nowMs() });
+        break;
+      case 'kill':
+        rings.push({ x: ev.x, y: ev.y, r: 8, max: 70, t: nowMs(), life: 500, color: colorOf(ev.victim), kind: 'atk' });
+        addFeed(ev.kn + ' clashed ' + ev.vn, colorOf(ev.killer));
+        break;
+      case 'join': addFeed(ev.n + ' joined', '#8b949e'); break;
+      case 'leave': addFeed(ev.n + ' left', '#8b949e'); break;
+      case 'stroke': {
+        if (me && ev.owner === me.id) break;       // my own drawing is already local
+        let s = strokes.get(ev.key);
+        if (!s) { s = { key: ev.key, owner: ev.owner, color: ev.c, shape: ev.sh, pts: [], done: false, doneAt: 0 }; strokes.set(ev.key, s); }
+        if (ev.rep) s.pts = ev.pts.slice(); else for (const q of ev.pts) s.pts.push(q);
+        if (ev.d) { s.done = true; s.doneAt = nowMs(); }
+        break;
+      }
+      default: break;
+    }
+  }
+
+  // Build the actions for my in-progress drawing (sent in chunks) and queue them.
+  function flushStroke(final) {
+    const s = myStroke;
+    if (!s) return;
+    if (s.shape === 'free') {
+      for (;;) {
+        const chunk = s.pts.slice(s.sent, s.sent + cfg.MAX_POINTS_PER_ACTION);
+        s.sent += chunk.length;
+        const last = s.sent >= s.pts.length;
+        const d = final && last ? 1 : 0;
+        if (chunk.length || d) actions.push({ i: ++aidCounter, t: 'draw', k: s.sid, s: s.shape, p: chunk, d });
+        if (last) break;
+      }
+    } else {
+      const key = s.p0.join(',') + '>' + s.p1.join(',');
+      if (final || key !== s.sentKey) {
+        s.sentKey = key;
+        actions.push({ i: ++aidCounter, t: 'draw', k: s.sid, s: s.shape, p: [s.p0, s.p1], d: final ? 1 : 0 });
+      }
+    }
+  }
+
+  async function syncOnce() {
+    flushStroke(false);                     // streams my in-progress drawing to everyone
+    const sending = actions.slice(0, cfg.MAX_ACTIONS);
+    const t0 = nowMs();
+    lastSyncStart = t0;
+    const { status, data } = await post('sync', {
+      id: me.id, token: me.token, x: Math.round(mouse.x * 10) / 10, y: Math.round(mouse.y * 10) / 10,
+      a: sending, since: seq, rv
+    });
+    if (status === 410) { await rejoin(); return; }
+    if (status !== 200 || !data) throw new Error('HTTP ' + status);
+    actions.splice(0, sending.length);
+    const dt = nowMs() - t0;
+    rtt = rtt ? rtt * 0.8 + dt * 0.2 : dt;
+    failures = 0; banner = '';
+    applyState(data);
+  }
+
+  async function rejoin() {
+    banner = 'Reconnecting…';
+    const keepName = me ? me.name : '';
+    await join(keepName);
+    addFeed('Reconnected', '#8b949e');
+    banner = '';
+  }
+
+  async function pollLoop() {
+    while (running) {
+      const t0 = nowMs();
+      try { await syncOnce(); }
+      catch (e) {
+        failures++;
+        if (failures >= 2) banner = 'Reconnecting…';
+        await sleep(Math.min(2000, 150 * failures));
+        continue;
+      }
+      await sleep(Math.max(0, SYNC_MS - (nowMs() - t0)));
+    }
+  }
+
+  // ---------- Input ----------
+  function setMouse(e) {
+    mouse.x = clamp(e.clientX / sx, 0, cfg.W);
+    mouse.y = clamp(e.clientY / sy, 0, cfg.H);
+  }
+
+  function doAttack() {
+    const m = myState();
+    if (!me || !m || m.dead) return;
+    if (remaining(you.ac) > 0.05) return;
+    if (m.mana < cfg.ATTACK_COST) { manaFlash = 1; return; }
+    actions.push({ i: ++aidCounter, t: 'atk' });
+    rings.push({ x: mouse.x, y: mouse.y, r: 6, max: cfg.ATTACK_RADIUS, t: nowMs(), life: 250, color: me.color, kind: 'atk' });
+    you.ac = cfg.ATTACK_CD; you.rcv = nowMs();     // local estimate until the server confirms
+    kick();
+  }
+
+  function doHeal() {
+    const m = myState();
+    if (!me || !m || m.dead || m.hp >= cfg.MAX_HP) return;
+    if (remaining(you.hc) > 0.05) return;
+    if (m.mana < cfg.HEAL_COST) { manaFlash = 1; return; }
+    actions.push({ i: ++aidCounter, t: 'heal' });
+    kick();
+  }
+
+  function setDrawMode(on) {
+    drawMode = on;
+    if (!on && myStroke) endStroke();
+    syncTouchButtons();
+  }
+
+  function startStroke() {
+    if (myStroke) endStroke();
+    const sid = ++strokeCounter;
+    const p0 = [Math.round(mouse.x * 10) / 10, Math.round(mouse.y * 10) / 10];
+    myStroke = { key: me.id + ':' + sid, sid, owner: me.id, color: me.color, shape,
+      pts: shape === 'free' ? [p0] : [p0, p0.slice()], p0, p1: p0.slice(), sent: 0, done: false, doneAt: 0 };
+    strokes.set(myStroke.key, myStroke);
+  }
+
+  function extendStroke() {
+    const s = myStroke;
+    if (!s) return;
+    const q = [Math.round(mouse.x * 10) / 10, Math.round(mouse.y * 10) / 10];
+    if (s.shape === 'free') {
+      const l = s.pts[s.pts.length - 1];
+      if (s.pts.length < cfg.MAX_STROKE_POINTS && Math.hypot(q[0] - l[0], q[1] - l[1]) > 3) s.pts.push(q);
+    } else { s.p1 = q; s.pts[1] = q; }
+  }
+
+  function endStroke() {
+    const s = myStroke;
+    if (!s) return;
+    extendStroke();
+    flushStroke(true);
+    s.done = true; s.doneAt = nowMs();
+    myStroke = null;
+    kick();
+  }
+
+  cv.addEventListener('pointermove', e => { setMouse(e); if (myStroke) extendStroke(); });
+  cv.addEventListener('pointerdown', e => {
+    if (e.button === 2) return;
+    setMouse(e);
+    if (!me) return;
+    if (drawMode) startStroke(); else doAttack();
+  });
+  window.addEventListener('pointerup', () => { if (myStroke) endStroke(); });
+  window.addEventListener('pointercancel', () => { if (myStroke) endStroke(); });
+  cv.addEventListener('contextmenu', e => { e.preventDefault(); doHeal(); });
+  window.addEventListener('keydown', e => {
+    if (!me || !running) return;
+    const k = e.key.toLowerCase();
+    if (k === 'h') doHeal();
+    else if (k === 'd') setDrawMode(!drawMode);
+    else if (k === 'escape') setDrawMode(false);
+    else if (/^[1-4]$/.test(k)) { shape = SHAPES[+k - 1]; syncTouchButtons(); }
+    else if (k === ' ') { e.preventDefault(); doAttack(); }
+  });
+
+  // touch buttons (shown only on touch devices)
+  const touch = document.getElementById('touch');
+  const bHeal = document.getElementById('bHeal'), bDraw = document.getElementById('bDraw'), bShape = document.getElementById('bShape');
+  function syncTouchButtons() {
+    bDraw.classList.toggle('on', drawMode);
+    bShape.textContent = SHAPE_NAMES[shape];
+  }
+  bHeal.addEventListener('click', doHeal);
+  bDraw.addEventListener('click', () => setDrawMode(!drawMode));
+  bShape.addEventListener('click', () => { shape = SHAPES[(SHAPES.indexOf(shape) + 1) % SHAPES.length]; syncTouchButtons(); });
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) touch.style.display = 'flex';
+
+  window.addEventListener('pagehide', () => {
+    if (me && navigator.sendBeacon) navigator.sendBeacon(BASE + 'api/leave', JSON.stringify({ id: me.id, token: me.token }));
+  });
+
+  // ---------- Rendering ----------
+  const X = x => x * sx, Y = y => y * sy;
+
+  function drawCursorShape(px, py, color, alpha) {
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.scale(cs, cs);
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(0, 30); ctx.lineTo(8, 23); ctx.lineTo(14, 36);
+    ctx.lineTo(20, 33); ctx.lineTo(14, 21); ctx.lineTo(24, 21); ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = '#000'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlayer(p, isMe) {
+    const r = roster.get(p.id);
+    if (!r) return;
+    const px = isMe ? X(mouse.x) : X(p.rx), py = isMe ? Y(mouse.y) : Y(p.ry);
+    if (p.shield && !p.dead) {
+      ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(px + 6, py + 9, 16 * Math.max(0.8, cs * 1.6), 16 * Math.max(0.8, cs * 1.6), 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    drawCursorShape(px, py, r.color, p.dead ? 0.15 : 1);
+    if (p.dead) return;
+    ctx.textAlign = 'center';
+    ctx.font = '600 10px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillText(r.name, px + 9, py - 17);
+    ctx.fillStyle = isMe ? '#ffffff' : r.color; ctx.fillText(r.name, px + 8, py - 18);
+    const bw = 26, bx = px - 4, by = py - 13;
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx, by, bw, 3);
+    ctx.fillStyle = p.hp > 35 ? '#4ade80' : '#f87171'; ctx.fillRect(bx, by, bw * p.hp / cfg.MAX_HP, 3);
+  }
+
+  function drawStroke(s, t) {
+    const age = s.done ? (t - s.doneAt) / 1000 : 0;
+    const a = Math.max(0, 1 - age / cfg.DRAW_FADE);
+    if (a <= 0 || !s.pts.length) return;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = s.color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.shadowColor = s.color; ctx.shadowBlur = 10;
+    ctx.beginPath();
+    if (s.shape === 'free') {
+      ctx.moveTo(X(s.pts[0][0]), Y(s.pts[0][1]));
+      for (const q of s.pts) ctx.lineTo(X(q[0]), Y(q[1]));
+      if (s.pts.length === 1) ctx.lineTo(X(s.pts[0][0]) + 0.1, Y(s.pts[0][1]));
+    } else if (s.pts.length >= 2) {
+      const [p0, p1] = s.pts;
+      if (s.shape === 'line') { ctx.moveTo(X(p0[0]), Y(p0[1])); ctx.lineTo(X(p1[0]), Y(p1[1])); }
+      else if (s.shape === 'rect') ctx.rect(X(p0[0]), Y(p0[1]), X(p1[0] - p0[0]), Y(p1[1] - p0[1]));
+      else ctx.ellipse(X(p0[0]), Y(p0[1]), Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * sx, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * sy, 0, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function bar(x, y, w, h, frac, color, label, flash) {
+    ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = color; ctx.fillRect(x, y, w * clamp(frac, 0, 1), h);
+    ctx.strokeStyle = flash ? 'rgba(255,90,90,' + (0.4 + flash * 0.6) + ')' : 'rgba(255,255,255,.25)';
+    ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+    ctx.fillStyle = '#fff'; ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(label, x + 6, y + h - 4);
+  }
+
+  let lastFrame = nowMs();
+  function frame() {
+    const t = nowMs();
+    const dt = Math.min(0.1, (t - lastFrame) / 1000); lastFrame = t;
+
+    // smooth remote cursors toward their latest server position
+    const k = 1 - Math.exp(-dt * 16);
+    for (const p of players.values()) { p.rx += (p.x - p.rx) * k; p.ry += (p.y - p.ry) * k; }
+    hurt = Math.max(0, hurt - dt * 3); manaFlash = Math.max(0, manaFlash - dt * 2.5);
+
+    // expire finished drawings, effects and old feed lines
+    for (const [key, s] of strokes) if (s.done && t - s.doneAt > cfg.DRAW_FADE * 1000) strokes.delete(key);
+    for (let i = rings.length - 1; i >= 0; i--) if (t - rings[i].t > rings[i].life) rings.splice(i, 1);
+    for (let i = floaters.length - 1; i >= 0; i--) if (t - floaters[i].t > 900) floaters.splice(i, 1);
+    while (feed.length && t - feed[feed.length - 1].t > 6000) feed.pop();
+
+    // background
+    ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let gx = 0; gx <= cfg.W; gx += 100) { const x = Math.round(X(gx)) + .5; ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let gy = 0; gy <= cfg.H; gy += 100) { const y = Math.round(Y(gy)) + .5; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+
+    if (me) {
+      for (const s of strokes.values()) drawStroke(s, t);
+
+      for (const r of rings) {
+        const p = (t - r.t) / r.life, rad = r.r + (r.max - r.r) * p;
+        ctx.globalAlpha = Math.max(0, 1 - p);
+        ctx.strokeStyle = r.color; ctx.lineWidth = r.kind === 'heal' ? 3 : 2;
+        ctx.beginPath(); ctx.ellipse(X(r.x), Y(r.y), rad * sx, rad * sy, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      for (const p of players.values()) if (p.id !== me.id) drawPlayer(p, false);
+      const m = myState();
+      if (m) drawPlayer(m, true);
+
+      for (const f of floaters) {
+        const p = (t - f.t) / 900;
+        ctx.globalAlpha = Math.max(0, 1 - p);
+        ctx.fillStyle = f.color; ctx.font = '700 13px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(f.text, X(f.x), Y(f.y) - p * 28);
+        ctx.globalAlpha = 1;
+      }
+
+      if (drawMode) {
+        const mx = X(mouse.x), my = Y(mouse.y);
+        ctx.strokeStyle = me.color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(mx - 10, my); ctx.lineTo(mx + 10, my); ctx.moveTo(mx, my - 10); ctx.lineTo(mx, my + 10); ctx.stroke();
+      }
+
+      drawHud(m);
+    }
+
+    if (hurt > 0) {
+      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      g.addColorStop(0, 'rgba(255,0,0,0)'); g.addColorStop(1, 'rgba(255,40,40,' + (0.35 * hurt) + ')');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  function drawHud(m) {
+    const hp = m ? m.hp : 0, mana = m ? m.mana : 0;
+    bar(16, 16, 200, 16, hp / cfg.MAX_HP, hp > 35 ? '#4ade80' : '#f87171', 'HP ' + hp);
+    bar(16, 38, 200, 16, mana / cfg.MAX_MANA, '#4aa8ff', 'Mana ' + mana, manaFlash);
+    const hc = remaining(you.hc);
+    bar(16, 60, 200, 14, 1 - hc / cfg.HEAL_CD, '#a78bfa', hc > 0 ? 'Heal ' + hc.toFixed(1) + 's' : 'Heal ready');
+
+    ctx.textAlign = 'left'; ctx.font = '12px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.fillText('Click / Space: attack   H / Right-click: heal   D: draw mode   1-4: shape   Esc: exit draw', 16, H - 16);
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.fillText(players.size + ' online · ' + Math.round(rtt) + ' ms', 16, H - 34);
+    if (drawMode) {
+      ctx.fillStyle = me.color; ctx.font = '600 13px system-ui, sans-serif';
+      ctx.fillText('DRAW MODE — ' + SHAPE_NAMES[shape] + '  (1 free · 2 line · 3 box · 4 circle)', 16, H - 54);
+    }
+
+    // scoreboard
+    const list = [...roster.values()].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).slice(0, 8);
+    if (me && !list.some(r => r.id === me.id) && roster.get(me.id)) list.push(roster.get(me.id));
+    ctx.textAlign = 'right'; ctx.font = '600 12px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillText('KILLS', W - 16, 24);
+    list.forEach((r, i) => {
+      ctx.fillStyle = r.color;
+      ctx.fillText((r.id === me.id ? '▸ ' : '') + r.name + '  ' + r.kills, W - 16, 44 + i * 18);
+    });
+    ctx.font = '12px system-ui, sans-serif';
+    const tNow = nowMs();
+    feed.forEach((e, i) => {
+      ctx.globalAlpha = Math.max(0.15, 0.9 - i * 0.14 - Math.max(0, (tNow - e.t - 4500) / 1500));
+      ctx.fillStyle = e.color; ctx.fillText(e.msg, W - 16, H - 16 - i * 16);
+      ctx.globalAlpha = 1;
+    });
+
+    if (m && m.dead) {
+      ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = '700 28px system-ui, sans-serif';
+      ctx.fillText('Respawning in ' + Math.max(1, Math.ceil(remaining(you.rs))) + '…', W / 2, H / 2);
+    }
+    document.getElementById('banner').style.display = banner ? 'block' : 'none';
+    document.getElementById('banner').textContent = banner;
+  }
+
+  // ---------- Menu / start ----------
+  const menu = document.getElementById('menu');
+  const form = document.getElementById('joinForm');
+  const nameInput = document.getElementById('nameInput');
+  const playBtn = document.getElementById('playBtn');
+  const err = document.getElementById('err');
+  const params = new URLSearchParams(location.search);
+
+  try { nameInput.value = params.get('name') || localStorage.getItem('cc_name') || ''; } catch (e) { nameInput.value = params.get('name') || ''; }
+
+  async function begin(name) {
+    err.textContent = ''; playBtn.disabled = true;
+    try {
+      await join(name);
+      try { localStorage.setItem('cc_name', me.name); } catch (e) { /* ignore */ }
+      menu.classList.add('hidden');
+      document.body.classList.add('playing');
+      running = true;
+      syncTouchButtons();
+      pollLoop();
+    } catch (e) {
+      err.textContent = (e && e.message) || 'Could not connect.';
+      playBtn.disabled = false;
+    }
+  }
+  form.addEventListener('submit', e => { e.preventDefault(); begin(nameInput.value); });
+
+  requestAnimationFrame(frame);
+  if (params.get('autoplay') === '1') begin(nameInput.value); else nameInput.focus();
+})();
+</script>
 </body>
 </html>
