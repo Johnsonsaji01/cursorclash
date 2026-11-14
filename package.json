@@ -1,6 +1,6 @@
 {
   "name": "cursorclash",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "CursorClash — real-time multiplayer cursor battle over plain HTTP polling (no WebSockets, no dependencies)",
   "main": "server.js",
   "private": true,

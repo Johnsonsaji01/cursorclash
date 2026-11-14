@@ -10,30 +10,63 @@
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-user-select: none; user-select: none; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; }
   body.playing canvas { cursor: none; }
+  .hidden { display: none !important; }
 
-  #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(13, 17, 23, .86); z-index: 5; }
-  #menu.hidden { display: none; }
-  .card { width: min(420px, 90vw); padding: 28px 28px 22px; border-radius: 16px; background: #161b22;
-    border: 1px solid #30363d; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(13, 17, 23, .88); z-index: 5; overflow: auto; }
+  .card { width: min(440px, 92vw); box-sizing: border-box; padding: 26px 26px 20px; border-radius: 16px; background: #161b22;
+    border: 1px solid #30363d; box-shadow: 0 20px 60px rgba(0,0,0,.5); margin: 16px 0; }
   .card h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: .5px; }
   .card h1 span { color: #ffd84d; }
-  .card p { margin: 0 0 18px; color: #8b949e; font-size: 14px; line-height: 1.45; }
-  .card input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; border-radius: 10px;
+  .card h2 { margin: 0 0 2px; font-size: 22px; }
+  .card p { margin: 0 0 16px; color: #8b949e; font-size: 14px; line-height: 1.45; }
+  .card input[type=text] { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; border-radius: 10px;
     border: 1px solid #30363d; background: #0d1117; color: #e6edf3; outline: none; -webkit-user-select: text; user-select: text; }
-  .card input:focus { border-color: #ffd84d; }
-  .card button { width: 100%; margin-top: 12px; padding: 12px; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px;
-    background: #ffd84d; color: #1b1500; cursor: pointer; }
-  .card button:disabled { opacity: .6; cursor: default; }
+  .card input[type=text]:focus { border-color: #ffd84d; }
+  .btn { width: 100%; margin-top: 12px; padding: 12px; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px;
+    background: #ffd84d; color: #1b1500; cursor: pointer; position: relative; overflow: hidden; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.ghost { background: transparent; color: #8b949e; border: 1px solid #30363d; font-weight: 600; margin-top: 8px; }
+  /* press-and-hold fill */
+  #playBtn.hold::before { content: ''; position: absolute; inset: 0; width: calc(var(--p, 0) * 100%); background: rgba(255,255,255,.55); }
+  #playBtn span { position: relative; }
   #err { min-height: 18px; margin-top: 10px; font-size: 13px; color: #ff7b72; }
+  .hint { margin-top: 8px; font-size: 12.5px; color: #8b949e; text-align: center; min-height: 16px; }
+  .note { margin: 0 0 14px; padding: 9px 12px; border-radius: 10px; background: rgba(178, 92, 255, .14); border: 1px solid rgba(178, 92, 255, .5);
+    color: #d9b8ff; font-size: 13.5px; }
   .keys { margin-top: 14px; font-size: 12.5px; color: #8b949e; line-height: 1.7; }
   .keys b { color: #e6edf3; font-weight: 600; }
+  .hp { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; }
 
+  /* colour picker */
+  #swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 14px 0 6px; }
+  .sw { position: relative; aspect-ratio: 1; padding: 0; border: 3px solid transparent; border-radius: 50%; background: none; cursor: pointer; outline: none; }
+  .sw .dot { position: absolute; inset: 2px; border-radius: 50%; background: var(--c); box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); }
+  .sw:hover:not(:disabled) .dot, .sw:focus-visible .dot { transform: scale(1.1); }
+  .sw.sel { border-color: #fff; box-shadow: 0 0 0 2px #ffd84d; }
+  .sw.taken { cursor: not-allowed; }
+  .sw.taken .dot { filter: grayscale(1) brightness(.45); }
+  .sw.taken::before, .sw.taken::after { content: ''; position: absolute; left: 50%; top: 50%; width: 78%; height: 3px; border-radius: 2px;
+    background: #ff6b6b; box-shadow: 0 0 0 1px rgba(0,0,0,.5); transform: translate(-50%, -50%) rotate(45deg); }
+  .sw.taken::after { transform: translate(-50%, -50%) rotate(-45deg); }
+  #pkChosen { font-size: 13px; color: #8b949e; min-height: 18px; }
+  .invite { display: flex; gap: 8px; margin: 0 0 12px; }
+  .invite input { flex: 1; min-width: 0; font-size: 13px !important; padding: 9px 10px !important; }
+  .invite button { padding: 0 14px; border-radius: 10px; border: 0; background: #b25cff; color: #1a0630; font-weight: 700; cursor: pointer; }
+
+  /* in-game bar */
+  #bar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; z-index: 4;
+    padding: 6px 8px 6px 14px; border-radius: 999px; background: rgba(22, 27, 34, .85); border: 1px solid #30363d; font-size: 13px; font-weight: 600; }
+  #bar button { padding: 6px 12px; border-radius: 999px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  #bar button:hover { border-color: #ffd84d; }
+  #toast { position: fixed; top: 58px; left: 50%; transform: translateX(-50%); max-width: 90vw; padding: 8px 14px; border-radius: 12px;
+    background: rgba(22, 27, 34, .95); border: 1px solid #ffd84d; color: #ffe9a0; font-size: 13px; z-index: 6; display: none; text-align: center; }
   #banner { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px;
-    background: rgba(255, 123, 114, .92); color: #1b0b09; font-weight: 700; font-size: 13px; z-index: 4; display: none; }
+    background: rgba(255, 123, 114, .92); color: #1b0b09; font-weight: 700; font-size: 13px; z-index: 7; display: none; }
 
-  #touch { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 10px; z-index: 4; }
-  #touch button { padding: 12px 18px; font-size: 15px; font-weight: 700; border-radius: 12px; border: 1px solid #30363d;
+  #touch { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 8px; z-index: 4; }
+  body.playing.coarse #touch { display: flex; }
+  #touch button { padding: 12px 16px; font-size: 15px; font-weight: 700; border-radius: 12px; border: 1px solid #30363d;
     background: rgba(22, 27, 34, .9); color: #e6edf3; }
   #touch button.on { background: #ffd84d; color: #1b1500; border-color: #ffd84d; }
 </style>
@@ -41,37 +74,61 @@
 <body>
 <canvas id="c"></canvas>
 
-<div id="menu">
+<div id="bar" class="hidden"><span id="worldName"></span><button id="inviteBtn" class="hidden" type="button">Copy invite link</button><button id="lobbyBtn" type="button">Lobby</button></div>
+<div id="toast"></div>
+<div id="banner">Reconnecting…</div>
+
+<div id="menu" class="overlay">
   <form class="card" id="joinForm" autocomplete="off">
     <h1>Cursor<span>Clash</span></h1>
-    <p>Everyone is a cursor. Click to hit nearby cursors, heal when you're low, and scribble messages that fade away.</p>
-    <input id="nameInput" maxlength="16" placeholder="Your name" spellcheck="false">
-    <button id="playBtn" type="submit">Play</button>
+    <p>Everyone is a cursor. Click to hit nearby cursors, heal when you're low, scribble messages that fade away, and build walls the others can't cross.</p>
+    <div class="note hidden" id="inviteNote">You've been invited to a private world. Pick a name and you'll choose your colour next.</div>
+    <input type="text" id="nameInput" maxlength="16" placeholder="Your name" spellcheck="false" aria-label="Your name">
+    <input type="text" class="hp" id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div id="tsBox" class="hidden" style="margin-top:12px"></div>
+    <button class="btn hold" id="playBtn" type="button"><span id="playLabel">Hold to play</span></button>
+    <div class="hint" id="holdHint"></div>
     <div id="err"></div>
     <div class="keys">
       <b>Click</b> / <b>Space</b> attack &nbsp;·&nbsp; <b>H</b> / right-click heal<br>
-      <b>D</b> draw mode &nbsp;·&nbsp; <b>1–4</b> freehand, line, box, circle &nbsp;·&nbsp; <b>Esc</b> exit draw
+      <b>D</b> ink (cosmetic) &nbsp;·&nbsp; <b>B</b> block wall (costs mana, lasts 5 s)<br>
+      <b>1–4</b> freehand, line, box, circle &nbsp;·&nbsp; <b>Esc</b> stop drawing
     </div>
   </form>
 </div>
 
-<div id="banner">Reconnecting…</div>
+<div id="picker" class="overlay hidden">
+  <div class="card">
+    <h2 id="pkTitle">Choose your colour</h2>
+    <p id="pkSub"></p>
+    <div class="invite hidden" id="pkInvite"><input type="text" id="pkLink" readonly aria-label="Invite link"><button type="button" id="pkCopy">Copy</button></div>
+    <div id="swatches" role="group" aria-label="Colours"></div>
+    <div id="pkChosen"></div>
+    <div id="pkErr" style="min-height:18px;margin-top:6px;font-size:13px;color:#ff7b72"></div>
+    <button class="btn" id="pkGo" type="button" disabled>Join</button>
+    <button class="btn ghost" id="pkBack" type="button">Back to lobby</button>
+  </div>
+</div>
+
 <div id="touch">
-  <button id="bHeal">Heal</button>
-  <button id="bDraw">Draw</button>
-  <button id="bShape">Free</button>
+  <button id="bHeal" type="button">Heal</button>
+  <button id="bInk" type="button">Ink</button>
+  <button id="bBlock" type="button">Block</button>
+  <button id="bShape" type="button">Free</button>
 </div>
 
 <script>
 (() => {
   'use strict';
+  const $ = id => document.getElementById(id);
 
   // ---------- Canvas / view ----------
-  const cv = document.getElementById('c');
+  const cv = $('c');
   const ctx = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, sx = 1, sy = 1, cs = 0.58;
   let cfg = { W: 1600, H: 900, MAX_HP: 100, MAX_MANA: 100, ATTACK_COST: 5, ATTACK_RADIUS: 52, ATTACK_CD: 0.32,
-    HEAL_COST: 25, HEAL_CD: 4.5, HEAL_AMOUNT: 35, DRAW_FADE: 3.5, MAX_STROKE_POINTS: 400, MAX_POINTS_PER_ACTION: 60, MAX_ACTIONS: 24 };
+    HEAL_COST: 25, HEAL_CD: 4.5, HEAL_AMOUNT: 35, DRAW_FADE: 3.5, MAX_STROKE_POINTS: 400, MAX_POINTS_PER_ACTION: 60, MAX_ACTIONS: 24,
+    BLOCK_LIFE: 5, BLOCK_COST_PER_UNIT: 0.05, BLOCK_MIN_LEN: 8, CIRCLE_SEGMENTS: 40, PORTAL_R: 62, PORTAL_DWELL: 5, PRIVATE_SOLO_SEC: 300, PALETTE: [] };
 
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -84,6 +141,7 @@
   }
   window.addEventListener('resize', resize);
   resize();
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) document.body.classList.add('coarse');
 
   // ---------- Base path (works at / and at /cursorclash/) ----------
   const BASE = (() => {
@@ -95,16 +153,86 @@
     return p;
   })();
 
+  // ---------- Geometry (identical to the server's copy) ----------
+  function polyPts(shape, pts, circleSegs) {
+    if (shape === 'free') return pts;
+    if (pts.length < 2) return [];
+    const p0 = pts[0], p1 = pts[1];
+    if (shape === 'line') return [p0, p1];
+    if (shape === 'rect') return [[p0[0], p0[1]], [p1[0], p0[1]], [p1[0], p1[1]], [p0[0], p1[1]], [p0[0], p0[1]]];
+    const r = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    const out = [];
+    for (let i = 0; i <= circleSegs; i++) {
+      const a = (i / circleSegs) * Math.PI * 2;
+      out.push([p0[0] + Math.cos(a) * r, p0[1] + Math.sin(a) * r]);
+    }
+    return out;
+  }
+  function polyLength(poly) {
+    let L = 0;
+    for (let i = 1; i < poly.length; i++) L += Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]);
+    return L;
+  }
+  function segsFrom(poly, owner) {
+    const out = [];
+    for (let i = 1; i < poly.length; i++) out.push({ ax: poly[i - 1][0], ay: poly[i - 1][1], bx: poly[i][0], by: poly[i][1], o: owner });
+    return out;
+  }
+  function segHit(x, y, tx, ty, s) {
+    const ex = s.bx - s.ax, ey = s.by - s.ay;
+    const s0 = ex * (y - s.ay) - ey * (x - s.ax);
+    const s1 = ex * (ty - s.ay) - ey * (tx - s.ax);
+    if (!((s0 > 1e-9 && s1 < -1e-9) || (s0 < -1e-9 && s1 > 1e-9))) return -1;
+    const t = s0 / (s0 - s1);
+    const ix = x + (tx - x) * t, iy = y + (ty - y) * t;
+    const u = ((ix - s.ax) * ex + (iy - s.ay) * ey) / (ex * ex + ey * ey || 1);
+    return u < -0.002 || u > 1.002 ? -1 : t;
+  }
+  function resolveMove(fx, fy, tx, ty, segs, owner) {
+    let x = fx, y = fy;
+    for (let iter = 0; iter < 4; iter++) {
+      const dx = tx - x, dy = ty - y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-4) break;
+      let hitT = -1, hitSeg = null;
+      for (const s of segs) {
+        if (s.o === owner) continue;
+        const h = segHit(x, y, tx, ty, s);
+        if (h >= 0 && (hitSeg === null || h < hitT)) { hitT = h; hitSeg = s; }
+      }
+      if (!hitSeg) { x = tx; y = ty; break; }
+      const t = Math.max(0, hitT - 0.5 / len);
+      x += dx * t; y += dy * t;
+      let wx = hitSeg.bx - hitSeg.ax, wy = hitSeg.by - hitSeg.ay;
+      const wl = Math.hypot(wx, wy) || 1; wx /= wl; wy /= wl;
+      const slide = (dx * wx + dy * wy) * (1 - hitT);
+      tx = x + wx * slide; ty = y + wy * slide;
+    }
+    return [x, y];
+  }
+
   // ---------- State ----------
-  let me = null;                          // {id, token, name, color}
-  let seq = 0, rv = 0;
+  let ticket = null;                      // proof that the human check was passed
+  try { ticket = sessionStorage.getItem('cc_ticket') || null; } catch (e) { /* ignore */ }
+  let playerName = '';
+  let inviteCode = null;                  // ?w=CODE in the address bar
+  let me = null;                          // {id, token, name, color, cidx}  (null while in a menu)
+  let world = null;                       // {id, kind, name, max, count}
+  let gen = 0;                            // bumps whenever the poll loop must stop
+  let transitioning = false;
+  let seq = 0, rv = 0, pv = 0;
   const roster = new Map();               // id -> {id, name, color, kills, deaths}
   const players = new Map();              // id -> {id, x, y, rx, ry, hp, mana, dead, shield}
-  let you = { ac: 0, hc: 0, rs: 0, rcv: 0 };
-  const strokes = new Map();              // key -> {key, owner, color, shape, pts, done, doneAt}
+  let you = { ac: 0, hc: 0, rs: 0, pt: null, rcv: 0 };
+  let portals = [];                       // lobby: {id, kind, x, y, count, max, label, full}
+  let solo = null;                        // private world: seconds until it closes while I'm alone in it
+  const strokes = new Map();              // key -> {kind:'ink'|'block', ...}
   const rings = [], floaters = [], feed = [];
-  const mouse = { x: 800, y: 450 };
-  let drawMode = false, shape = 'free', myStroke = null, strokeCounter = 0;
+  const mouse = { x: 800, y: 450 };       // where the real mouse is (the target)
+  const cur = { x: 800, y: 450 };         // your game cursor: follows the mouse but other players' walls stop it
+  let pathBuf = [];                       // cursor positions since the last sync (so the server can walk the same path)
+  let wallSegs = [], wallsDirty = true;
+  let pen = 'off', shape = 'free', myStroke = null, strokeCounter = 0;   // pen: 'off' | 'ink' | 'block'
   let actions = [], aidCounter = 0;
   let running = false, failures = 0, rtt = 0, lastSyncStart = 0, wakeFn = null;
   let hurt = 0, manaFlash = 0;
@@ -114,12 +242,38 @@
   const SHAPE_NAMES = { free: 'Freehand', line: 'Line', rect: 'Box', circle: 'Circle' };
   const nowMs = () => performance.now();
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const round1 = v => Math.round(v * 10) / 10;
+  const inLobby = () => !!world && world.kind === 'lobby';
 
   function colorOf(id) { const r = roster.get(id); return r ? r.color : '#aaaaaa'; }
-  function nameOf(id) { const r = roster.get(id); return r ? r.name : '?'; }
   function remaining(v) { return Math.max(0, v - (nowMs() - you.rcv) / 1000); }
   function myState() { return me ? players.get(me.id) : null; }
   function addFeed(msg, color) { feed.unshift({ msg, color: color || '#e6edf3', t: nowMs() }); if (feed.length > 6) feed.pop(); }
+  function notify(msg, ms) {
+    const el = $('toast'); el.textContent = msg; el.style.display = 'block';
+    clearTimeout(notify.t); notify.t = setTimeout(() => { el.style.display = 'none'; }, ms || 4500);
+  }
+  function store(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function saveTicket() { try { if (ticket) sessionStorage.setItem('cc_ticket', ticket); else sessionStorage.removeItem('cc_ticket'); } catch (e) { /* ignore */ } }
+
+  function rebuildWalls() {
+    wallSegs = [];
+    for (const s of strokes.values()) if (s.kind === 'block' && !s.preview && s.segs) for (const g of s.segs) wallSegs.push(g);
+    wallsDirty = false;
+  }
+
+  // Create/update a finished block wall. remMs = how long it still has to live.
+  function setWall(key, owner, color, shapeName, pts, remMs) {
+    const s = strokes.get(key) || { key, owner, color, kind: 'block', pts: [], done: true, doneAt: nowMs() };
+    s.owner = owner; s.color = color; s.shape = shapeName; s.kind = 'block';
+    s.pts = pts.map(q => [q[0], q[1]]);
+    s.preview = false; s.done = true;
+    s.expireAt = nowMs() + remMs;
+    s.segs = segsFrom(polyPts(shapeName, s.pts, cfg.CIRCLE_SEGMENTS), owner);
+    strokes.set(key, s);
+    wallsDirty = true;
+  }
 
   // ---------- Networking (HTTP polling) ----------
   const SYNC_MS = 55;
@@ -128,7 +282,7 @@
 
   async function post(route, body, timeoutMs) {
     const ctl = new AbortController();
-    const to = setTimeout(() => ctl.abort(), timeoutMs || 4000);
+    const to = setTimeout(() => ctl.abort(), timeoutMs || 6000);
     try {
       const res = await fetch(BASE + 'api/' + route, {
         method: 'POST', body: JSON.stringify(body), cache: 'no-store', signal: ctl.signal,
@@ -142,19 +296,8 @@
 
   function resetWorld() {
     roster.clear(); players.clear(); strokes.clear();
-    rings.length = 0; floaters.length = 0;
-    actions = []; myStroke = null; seq = 0; rv = 0;
-  }
-
-  async function join(name) {
-    const { status, data } = await post('join', { name });
-    if (status !== 200 || !data) throw new Error((data && data.error) || 'Could not join (HTTP ' + status + ')');
-    resetWorld();
-    me = { id: data.id, token: data.token, name: data.name, color: data.color };
-    cfg = Object.assign(cfg, data.cfg);
-    resize();
-    applyState(data);
-    return data;
+    rings.length = 0; floaters.length = 0; portals = []; solo = null;
+    actions = []; myStroke = null; seq = 0; rv = 0; pv = 0; pathBuf = []; wallSegs = []; wallsDirty = true; pen = 'off';
   }
 
   function applyState(d) {
@@ -164,12 +307,19 @@
       for (const r of d.roster) roster.set(r[0], { id: r[0], name: r[1], color: r[2], kills: r[3], deaths: r[4] });
       rv = d.rv;
     }
+    if (d.portals) {
+      portals = d.portals.map(q => ({ id: q[0], kind: q[1], x: q[2], y: q[3], count: q[4], max: q[5], label: q[6], full: !!q[7] }));
+      pv = d.pv;
+    }
+    if (d.n !== undefined && world) { if (world.count !== d.n) { world.count = d.n; updateBar(); } }
+    solo = d.solo !== undefined ? d.solo : null;
     if (d.full && d.strokes) {
-      for (const [k, s] of [...strokes]) if (s.owner !== me.id) strokes.delete(k);
+      for (const [k, s] of [...strokes]) if (s.owner !== me.id) { strokes.delete(k); if (s.kind === 'block') wallsDirty = true; }
       for (const s of d.strokes) {
+        if (s.k === 'block') { setWall(s.key, s.owner, s.c, s.sh, s.pts, s.rem * 1000); continue; }
         if (s.owner === me.id) continue;
         if (s.age > cfg.DRAW_FADE) continue;
-        strokes.set(s.key, { key: s.key, owner: s.owner, color: s.c, shape: s.sh, pts: s.pts.slice(),
+        strokes.set(s.key, { key: s.key, owner: s.owner, color: s.c, shape: s.sh, kind: 'ink', pts: s.pts.slice(),
           done: s.age >= 0, doneAt: s.age >= 0 ? nowMs() - s.age * 1000 : 0 });
       }
     }
@@ -181,11 +331,11 @@
       o.x = p[1]; o.y = p[2]; o.hp = p[3]; o.mana = p[4]; o.dead = !!p[5]; o.shield = !!p[6];
     }
     for (const id of [...players.keys()]) if (!seen.has(id)) players.delete(id);
-    if (d.you) you = { ac: d.you.ac, hc: d.you.hc, rs: d.you.rs, rcv: nowMs() };
-    for (const ev of d.events || []) applyEvent(ev);
+    if (d.you) you = { ac: d.you.ac, hc: d.you.hc, rs: d.you.rs, pt: d.you.pt || null, rcv: nowMs() };
+    for (const ev of d.events || []) applyEvent(ev, d.t);
   }
 
-  function applyEvent(ev) {
+  function applyEvent(ev, srvNow) {
     const mine = me && ev.id === me.id;
     switch (ev.e) {
       case 'atk':
@@ -206,9 +356,14 @@
       case 'join': addFeed(ev.n + ' joined', '#8b949e'); break;
       case 'leave': addFeed(ev.n + ' left', '#8b949e'); break;
       case 'stroke': {
-        if (me && ev.owner === me.id) break;       // my own drawing is already local
+        if (ev.k === 'block') {                   // a finished wall (also confirms my own preview)
+          const age = srvNow != null && ev.ts != null ? Math.max(0, srvNow - ev.ts) : 0;
+          setWall(ev.key, ev.owner, ev.c, ev.sh, ev.pts, Math.max(0, ev.life - age) * 1000);
+          break;
+        }
+        if (me && ev.owner === me.id) break;      // my own ink is already local
         let s = strokes.get(ev.key);
-        if (!s) { s = { key: ev.key, owner: ev.owner, color: ev.c, shape: ev.sh, pts: [], done: false, doneAt: 0 }; strokes.set(ev.key, s); }
+        if (!s) { s = { key: ev.key, owner: ev.owner, color: ev.c, shape: ev.sh, kind: 'ink', pts: [], done: false, doneAt: 0 }; strokes.set(ev.key, s); }
         if (ev.rep) s.pts = ev.pts.slice(); else for (const q of ev.pts) s.pts.push(q);
         if (ev.d) { s.done = true; s.doneAt = nowMs(); }
         break;
@@ -217,65 +372,432 @@
     }
   }
 
-  // Build the actions for my in-progress drawing (sent in chunks) and queue them.
-  function flushStroke(final) {
-    const s = myStroke;
+  // Queue my in-progress drawing. Ink streams to everyone while you draw; walls are sent once, when you let go.
+  function flushStroke(s, final) {
     if (!s) return;
+    const block = s.kind === 'block';
+    if (block && !final) return;
+    const base = { t: 'draw', k: s.sid, s: s.shape };
+    if (block) base.b = 1;
     if (s.shape === 'free') {
       for (;;) {
         const chunk = s.pts.slice(s.sent, s.sent + cfg.MAX_POINTS_PER_ACTION);
         s.sent += chunk.length;
         const last = s.sent >= s.pts.length;
         const d = final && last ? 1 : 0;
-        if (chunk.length || d) actions.push({ i: ++aidCounter, t: 'draw', k: s.sid, s: s.shape, p: chunk, d });
+        if (chunk.length || d) actions.push(Object.assign({ i: ++aidCounter, p: chunk, d }, base));
         if (last) break;
       }
     } else {
       const key = s.p0.join(',') + '>' + s.p1.join(',');
       if (final || key !== s.sentKey) {
         s.sentKey = key;
-        actions.push({ i: ++aidCounter, t: 'draw', k: s.sid, s: s.shape, p: [s.p0, s.p1], d: final ? 1 : 0 });
+        actions.push(Object.assign({ i: ++aidCounter, p: [s.p0, s.p1], d: final ? 1 : 0 }, base));
       }
     }
   }
 
-  async function syncOnce() {
-    flushStroke(false);                     // streams my in-progress drawing to everyone
+  async function syncOnce(myGen) {
+    flushStroke(myStroke, false);           // streams my in-progress ink to everyone
     const sending = actions.slice(0, cfg.MAX_ACTIONS);
+    const pathCount = pathBuf.length;
+    const px = round1(cur.x), py = round1(cur.y);
     const t0 = nowMs();
     lastSyncStart = t0;
     const { status, data } = await post('sync', {
-      id: me.id, token: me.token, x: Math.round(mouse.x * 10) / 10, y: Math.round(mouse.y * 10) / 10,
-      a: sending, since: seq, rv
+      id: me.id, token: me.token, x: px, y: py, pp: pathBuf.slice(-12),
+      a: sending, since: seq, rv, pv
     });
-    if (status === 410) { await rejoin(); return; }
+    if (myGen !== gen) return;              // I moved on (changed world) while this was in flight
+    if (status === 410) { await handleGone(data && data.reason, data && data.error); return; }
     if (status !== 200 || !data) throw new Error('HTTP ' + status);
     actions.splice(0, sending.length);
+    pathBuf.splice(0, pathCount);
     const dt = nowMs() - t0;
     rtt = rtt ? rtt * 0.8 + dt * 0.2 : dt;
     failures = 0; banner = '';
     applyState(data);
+    // If the server stopped me somewhere other than where I put myself (a wall I didn't know about yet), trust it.
+    const m = players.get(me.id);
+    if (m && !m.dead && Math.hypot(m.x - px, m.y - py) > 3) { cur.x = m.x; cur.y = m.y; pathBuf = []; }
+    if (data.go) onGo(data.go);
   }
 
-  async function rejoin() {
-    banner = 'Reconnecting…';
-    const keepName = me ? me.name : '';
-    await join(keepName);
-    addFeed('Reconnected', '#8b949e');
-    banner = '';
-  }
-
-  async function pollLoop() {
-    while (running) {
+  async function pollLoop(myGen) {
+    while (running && myGen === gen) {
       const t0 = nowMs();
-      try { await syncOnce(); }
+      try { await syncOnce(myGen); }
       catch (e) {
+        if (myGen !== gen) return;
         failures++;
         if (failures >= 2) banner = 'Reconnecting…';
         await sleep(Math.min(2000, 150 * failures));
         continue;
       }
       await sleep(Math.max(0, SYNC_MS - (nowMs() - t0)));
+    }
+  }
+
+  // ---------- Going places: lobby, worlds, human check ----------
+  function startPlaying(d) {
+    gen++;
+    resetWorld();
+    me = { id: d.id, token: d.token, name: d.name, color: d.color, cidx: d.cidx };
+    world = d.world;
+    cfg = Object.assign(cfg, d.cfg);
+    resize();
+    applyState(d);
+    const mp = players.get(me.id);
+    if (mp) { cur.x = mp.x; cur.y = mp.y; }
+    $('menu').classList.add('hidden'); $('picker').classList.add('hidden');
+    document.body.classList.add('playing');
+    failures = 0; banner = '';
+    running = true;
+    updateBar(); syncTouchButtons();
+    pollLoop(gen);
+  }
+
+  async function leaveWorld() {
+    const m = me;
+    running = false; gen++; me = null;
+    pathBuf = []; actions = []; myStroke = null; pen = 'off';
+    document.body.classList.remove('playing');
+    $('bar').classList.add('hidden');
+    if (m) { try { await post('leave', { id: m.id, token: m.token }, 2500); } catch (e) { /* ignore */ } }
+  }
+
+  // result: {ok} | {handled:true} | {status, data}
+  async function joinWorld(worldId, color) {
+    const r = await post('join', { ticket, name: playerName, world: worldId, color });
+    if (r.status === 200) { startPlaying(r.data); return { ok: true }; }
+    if (r.status === 401) { needCheck('Quick check needed — hold the button to continue.'); return { handled: true }; }
+    return { status: r.status, data: r.data || {} };
+  }
+
+  function preferredColor() { const c = parseInt(load('cc_color'), 10); return Number.isInteger(c) ? c : undefined; }
+
+  async function enterLobby() {
+    const r = await joinWorld('lobby', preferredColor());
+    if (!r.ok && !r.handled) showMenu((r.data && r.data.error) || 'Could not reach the lobby — is the server up?');
+  }
+
+  async function goLobby(note) {
+    transitioning = true;
+    try {
+      await leaveWorld();
+      inviteCode = null;
+      try { history.replaceState(null, '', BASE); } catch (e) { /* ignore */ }
+      closePicker();
+      await enterLobby();
+      if (note) notify(note, 6000);
+    } finally { transitioning = false; }
+  }
+
+  async function onGo(go) {
+    if (transitioning) return;
+    transitioning = true;
+    try {
+      await leaveWorld();
+      if (go.k === 'world') await openPicker(go.w, {});
+      else if (go.k === 'private') {
+        const r = await post('newprivate', { ticket });
+        if (r.status === 200) await openPicker(r.data.code, { invite: true });
+        else if (r.status === 401) needCheck('Quick check needed — hold the button to continue.');
+        else { await enterLobby(); notify((r.data && r.data.error) || 'Could not create a private world.', 6000); }
+      }
+    } finally { transitioning = false; }
+  }
+
+  async function handleGone(reason, message) {
+    const prev = world;
+    const prevColor = me ? me.cidx : undefined;
+    transitioning = true;
+    try {
+      await leaveWorld();
+      if (reason === 'verify') needCheck('Quick check — hold the button to continue.');
+      else if (reason === 'banned') { ticket = null; saveTicket(); showMenu(message || 'Too many automated-looking actions. Try again in a few minutes.'); }
+      else if (reason === 'closed') await goLobbyAfterClose('That private world closed — you were alone in it for too long.');
+      else {                                  // dropped (tab was asleep, network blip): try to slip back in
+        banner = '';
+        if (prev && prev.kind !== 'lobby') {
+          const r = await joinWorld(prev.id, prevColor);
+          if (r.ok || r.handled) return;
+          await goLobbyAfterClose('Couldn\'t rejoin that world — back in the lobby.');
+        } else await enterLobby();
+      }
+    } finally { transitioning = false; }
+  }
+  async function goLobbyAfterClose(note) {
+    inviteCode = null;
+    try { history.replaceState(null, '', BASE); } catch (e) { /* ignore */ }
+    await enterLobby();
+    notify(note, 7000);
+  }
+
+  // ---------- Human check ----------
+  const hc = { chal: null, nonce: null, ready: null, moves: 0, trusted: true, pt: 'mouse', tsToken: null };
+  document.addEventListener('pointermove', e => { if (!e.isTrusted) hc.trusted = false; if (hc.moves < 1000) hc.moves++; hc.pt = e.pointerType || hc.pt; }, true);
+  document.addEventListener('pointerdown', e => { if (!e.isTrusted) hc.trusted = false; }, true);
+  document.addEventListener('keydown', e => { if (!e.isTrusted) hc.trusted = false; }, true);
+
+  function zeroBits(bytes, bits) {
+    let n = bits;
+    for (let i = 0; n > 0 && i < bytes.length; i++) {
+      if (n >= 8) { if (bytes[i] !== 0) return false; n -= 8; }
+      else { if ((bytes[i] >> (8 - n)) !== 0) return false; n = 0; }
+    }
+    return true;
+  }
+  async function solvePow(salt, bits) {
+    if (!(window.crypto && crypto.subtle)) throw new Error('This browser can\'t run the quick human check (it needs HTTPS).');
+    const enc = new TextEncoder();
+    const BATCH = 256;
+    for (let n = 0; ; n += BATCH) {
+      const ps = [];
+      for (let i = 0; i < BATCH; i++) ps.push(crypto.subtle.digest('SHA-256', enc.encode(salt + ':' + (n + i))));
+      const res = await Promise.all(ps);
+      for (let i = 0; i < BATCH; i++) if (zeroBits(new Uint8Array(res[i]), bits)) return n + i;
+    }
+  }
+  function loadTurnstile(sitekey) {
+    return new Promise((resolve, reject) => {
+      $('tsBox').classList.remove('hidden');
+      const render = () => window.turnstile.render('#tsBox', {
+        sitekey, theme: 'dark',
+        callback: tok => { hc.tsToken = tok; resolve(); },
+        'expired-callback': () => { hc.tsToken = null; },
+        'error-callback': () => reject(new Error('The security check failed to load.'))
+      });
+      if (window.turnstile) render();
+      else {
+        const s = document.createElement('script');
+        s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        s.async = true; s.onload = render; s.onerror = () => reject(new Error('Could not load the security check.'));
+        document.head.appendChild(s);
+      }
+    });
+  }
+  function prepareChallenge() {
+    hc.chal = null; hc.nonce = null; hc.tsToken = null;
+    hc.ready = (async () => {
+      const r = await post('challenge', {});
+      if (r.status === 429) throw new Error('Too many tries — wait a moment and reload the page.');
+      if (r.status === 403) throw new Error((r.data && r.data.error) || 'Access is paused for your network.');
+      if (r.status !== 200 || !r.data) throw new Error('Could not reach the server.');
+      hc.chal = r.data;
+      hc.nonce = await solvePow(r.data.salt, r.data.bits);
+      if (r.data.ts) await loadTurnstile(r.data.ts);
+    })();
+    hc.ready.catch(() => { /* reported when the player presses the button */ });
+  }
+
+  // ---------- Menu (name + press-and-hold) ----------
+  const playBtn = $('playBtn'), playLabel = $('playLabel'), nameInput = $('nameInput'), errEl = $('err'), hintEl = $('holdHint');
+  const HOLD_MS = 1000;
+  let holdStart = 0, holdRaf = 0, holdKind = 'pointer', holdPt = 'mouse', busy = false;
+  const needsHold = () => !ticket;
+
+  function updatePlayButton() {
+    playBtn.classList.toggle('hold', needsHold());
+    playLabel.textContent = busy ? 'Please wait…' : (needsHold() ? 'Hold to play' : 'Play');
+    hintEl.textContent = needsHold() && !busy ? 'Quick human check: press and hold the button for a second.' : '';
+    playBtn.disabled = busy;
+    playBtn.style.setProperty('--p', 0);
+  }
+  function showMenu(msg) {
+    closePicker();
+    $('menu').classList.remove('hidden');
+    $('bar').classList.add('hidden');
+    errEl.textContent = msg || '';
+    busy = false;
+    if (needsHold() && (!hc.ready || hc.chal === null)) prepareChallenge();
+    updatePlayButton();
+  }
+  function needCheck(msg) { ticket = null; saveTicket(); hc.chal = null; showMenu(msg); }
+
+  function holdBegin(kind, ptype) {
+    if (busy || !needsHold() || holdStart) return;
+    holdStart = nowMs(); holdKind = kind; holdPt = ptype || 'mouse';
+    errEl.textContent = '';
+    holdRaf = requestAnimationFrame(holdTick);
+  }
+  function holdTick() {
+    if (!holdStart) return;
+    const p = Math.min(1, (nowMs() - holdStart) / HOLD_MS);
+    playBtn.style.setProperty('--p', p);
+    if (p >= 1) { const held = nowMs() - holdStart; holdStart = 0; submitVerify(held); }
+    else holdRaf = requestAnimationFrame(holdTick);
+  }
+  function holdCancel() { if (!holdStart) return; holdStart = 0; cancelAnimationFrame(holdRaf); playBtn.style.setProperty('--p', 0); }
+
+  async function submitVerify(held) {
+    busy = true; updatePlayButton(); playBtn.style.setProperty('--p', 1);
+    try {
+      await hc.ready;
+      const r = await post('verify', {
+        ch: hc.chal.ch, nonce: hc.nonce, hold: Math.round(held), moves: hc.moves, kind: holdKind, pt: holdPt,
+        trusted: hc.trusted, hp: $('hp').value, tsToken: hc.tsToken
+      });
+      if (r.status === 200 && r.data && r.data.ticket) {
+        ticket = r.data.ticket; saveTicket();
+        busy = false; updatePlayButton();
+        await proceed();
+        return;
+      }
+      errEl.textContent = (r.data && r.data.error) || 'That didn\'t work — please try again.';
+    } catch (e) {
+      errEl.textContent = (e && e.message) || 'That didn\'t work — please try again.';
+    }
+    busy = false; prepareChallenge(); updatePlayButton();
+  }
+
+  async function proceed() {
+    playerName = nameInput.value.trim();
+    store('cc_name', playerName);
+    busy = true; updatePlayButton();
+    try {
+      if (inviteCode) await openPicker(inviteCode, { invite: true });
+      else await enterLobby();
+    } finally { busy = false; updatePlayButton(); }
+  }
+
+  playBtn.addEventListener('pointerdown', e => { if (e.button === 0 && needsHold()) { e.preventDefault(); holdBegin('pointer', e.pointerType); } });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) playBtn.addEventListener(ev, holdCancel);
+  playBtn.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && needsHold()) { e.preventDefault(); if (!e.repeat) holdBegin('key'); }
+  });
+  playBtn.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' ') holdCancel(); });
+  playBtn.addEventListener('click', () => { if (!needsHold() && !busy) proceed(); });
+  $('joinForm').addEventListener('submit', e => {
+    e.preventDefault();
+    if (needsHold()) errEl.textContent = 'Press and hold the button for a second to continue.';
+    else if (!busy) proceed();
+  });
+
+  // ---------- Colour picker ----------
+  let pk = null;
+  function closePicker() { if (pk && pk.timer) clearInterval(pk.timer); pk = null; $('picker').classList.add('hidden'); }
+
+  function inviteLink(id) { return location.origin + BASE + '?w=' + id; }
+
+  async function openPicker(worldId, opts) {
+    closePicker();
+    pk = { worldId, sel: -1, info: null, timer: 0, busy: false, invite: !!opts.invite, dead: false };
+    $('menu').classList.add('hidden');
+    $('picker').classList.remove('hidden');
+    $('pkErr').textContent = ''; $('pkTitle').textContent = 'Choose your colour'; $('pkSub').textContent = 'Loading…';
+    $('swatches').innerHTML = ''; $('pkGo').disabled = true;
+    $('pkInvite').classList.toggle('hidden', !pk.invite);
+    if (pk.invite) $('pkLink').value = inviteLink(worldId);
+    const mine = pk;
+    const ok = await refreshPicker(true);
+    if (ok && pk === mine) mine.timer = setInterval(() => refreshPicker(false), 2000);
+  }
+
+  async function refreshPicker(first) {
+    const mine = pk;
+    if (!mine) return false;
+    let r;
+    try { r = await post('worldinfo', { ticket, world: mine.worldId }); } catch (e) { return false; }
+    if (pk !== mine) return false;
+    if (r.status === 401) { closePicker(); needCheck('Quick check needed — hold the button to continue.'); return false; }
+    if (r.status !== 200) {
+      mine.dead = true; if (mine.timer) clearInterval(mine.timer);
+      $('pkTitle').textContent = 'World unavailable';
+      $('pkSub').textContent = (r.data && r.data.error) || 'Could not load that world.';
+      $('swatches').innerHTML = ''; $('pkGo').disabled = true; $('pkChosen').textContent = '';
+      return false;
+    }
+    mine.info = r.data;
+    if (r.data.palette) cfg.PALETTE = r.data.palette;
+    if (mine.sel >= 0 && r.data.taken.includes(mine.sel)) {
+      mine.sel = -1;
+      $('pkErr').textContent = 'That colour was just taken — pick another.';
+    }
+    if (first && mine.sel < 0) {
+      const pref = preferredColor();
+      mine.sel = pref !== undefined && !r.data.taken.includes(pref) ? pref : cfg.PALETTE.findIndex((_, i) => !r.data.taken.includes(i));
+    }
+    renderPicker();
+    return true;
+  }
+
+  function renderPicker() {
+    if (!pk || !pk.info) return;
+    const info = pk.info, taken = new Set(info.taken);
+    $('pkTitle').textContent = info.kind === 'private' ? 'Private world' : info.name;
+    const free = cfg.PALETTE.length - taken.size;
+    $('pkSub').textContent = info.count + ' / ' + info.max + ' players · ' + free + ' colours free. Pick yours — colours already in use are crossed out.';
+    $('pkInvite').classList.toggle('hidden', !(pk.invite || info.kind === 'private'));
+    $('pkLink').value = inviteLink(info.id);
+    const box = $('swatches');
+    box.innerHTML = '';
+    cfg.PALETTE.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'sw' + (taken.has(i) ? ' taken' : '') + (pk.sel === i ? ' sel' : '');
+      b.setAttribute('aria-label', c[0] + (taken.has(i) ? ' (taken)' : '')); b.title = c[0] + (taken.has(i) ? ' — taken' : '');
+      b.setAttribute('aria-pressed', pk.sel === i ? 'true' : 'false');
+      b.disabled = taken.has(i);
+      b.innerHTML = '<span class="dot"></span>';
+      b.firstChild.style.setProperty('--c', c[1]);
+      b.addEventListener('click', () => { pk.sel = i; $('pkErr').textContent = ''; renderPicker(); });
+      box.appendChild(b);
+    });
+    const full = info.count >= info.max;
+    $('pkChosen').textContent = pk.sel >= 0 ? 'Your colour: ' + cfg.PALETTE[pk.sel][0] : '';
+    $('pkGo').disabled = pk.sel < 0 || full || pk.busy;
+    $('pkGo').textContent = full ? 'World is full' : 'Join ' + (info.kind === 'private' ? 'private world' : info.name);
+  }
+
+  async function pickerJoin() {
+    const mine = pk;
+    if (!mine || mine.sel < 0 || mine.busy) return;
+    mine.busy = true; renderPicker();
+    const r = await joinWorld(mine.worldId, mine.sel);
+    if (pk !== mine) return;
+    mine.busy = false;
+    if (r.ok) { store('cc_color', String(mine.sel)); closePicker(); return; }
+    if (r.handled) return;
+    const d = r.data || {};
+    if (d.code === 'color') { mine.info.taken = d.taken || mine.info.taken; mine.sel = -1; $('pkErr').textContent = 'That colour was just taken — pick another.'; }
+    else if (d.code === 'full') $('pkErr').textContent = 'That world just filled up.';
+    else if (d.code === 'notfound') { $('pkErr').textContent = d.error; mine.dead = true; clearInterval(mine.timer); }
+    else $('pkErr').textContent = d.error || 'Could not join — try again.';
+    renderPicker();
+  }
+  $('pkGo').addEventListener('click', pickerJoin);
+  $('pkBack').addEventListener('click', () => { closePicker(); goLobby(); });
+  $('pkCopy').addEventListener('click', () => copyText($('pkLink').value, 'Invite link copied'));
+  $('pkLink').addEventListener('focus', e => e.target.select());
+
+  function copyText(text, okMsg) {
+    const done = () => notify(okMsg, 2500);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => window.prompt('Copy this link:', text));
+    else window.prompt('Copy this link:', text);
+  }
+
+  // ---------- In-game bar ----------
+  function updateBar() {
+    const bar = $('bar');
+    if (!me || !world) { bar.classList.add('hidden'); return; }
+    bar.classList.remove('hidden');
+    $('worldName').textContent = world.kind === 'lobby' ? 'Lobby' : world.name + ' · ' + world.count + '/' + world.max;
+    $('inviteBtn').classList.toggle('hidden', world.kind !== 'private');
+    $('lobbyBtn').classList.toggle('hidden', world.kind === 'lobby');
+  }
+  $('lobbyBtn').addEventListener('click', () => { if (!transitioning) goLobby(); });
+  $('inviteBtn').addEventListener('click', () => { if (world) copyText(inviteLink(world.id), 'Invite link copied — send it to your friends'); });
+
+  // ---------- Game cursor ----------
+  function moveCursor() {
+    if (!me) return;
+    if (wallsDirty) rebuildWalls();
+    const fx = cur.x, fy = cur.y;
+    const r = resolveMove(fx, fy, mouse.x, mouse.y, wallSegs, me.id);
+    cur.x = r[0]; cur.y = r[1];
+    if (cur.x !== fx || cur.y !== fy) {
+      pathBuf.push([round1(cur.x), round1(cur.y)]);
+      if (pathBuf.length > 60) pathBuf.shift();
     }
   }
 
@@ -287,43 +809,69 @@
 
   function doAttack() {
     const m = myState();
-    if (!me || !m || m.dead) return;
+    if (!me || !m || m.dead || inLobby()) return;
     if (remaining(you.ac) > 0.05) return;
     if (m.mana < cfg.ATTACK_COST) { manaFlash = 1; return; }
     actions.push({ i: ++aidCounter, t: 'atk' });
-    rings.push({ x: mouse.x, y: mouse.y, r: 6, max: cfg.ATTACK_RADIUS, t: nowMs(), life: 250, color: me.color, kind: 'atk' });
+    rings.push({ x: cur.x, y: cur.y, r: 6, max: cfg.ATTACK_RADIUS, t: nowMs(), life: 250, color: me.color, kind: 'atk' });
     you.ac = cfg.ATTACK_CD; you.rcv = nowMs();     // local estimate until the server confirms
     kick();
   }
 
   function doHeal() {
     const m = myState();
-    if (!me || !m || m.dead || m.hp >= cfg.MAX_HP) return;
+    if (!me || !m || m.dead || inLobby() || m.hp >= cfg.MAX_HP) return;
     if (remaining(you.hc) > 0.05) return;
     if (m.mana < cfg.HEAL_COST) { manaFlash = 1; return; }
     actions.push({ i: ++aidCounter, t: 'heal' });
     kick();
   }
 
-  function setDrawMode(on) {
-    drawMode = on;
-    if (!on && myStroke) endStroke();
+  function setPen(mode) {
+    if (!me) return;
+    if (mode === 'block' && inLobby()) { notify('Walls only work inside a world.', 2500); return; }
+    if (myStroke) endStroke();
+    pen = mode;
     syncTouchButtons();
   }
 
+  const blockLen = s => polyLength(polyPts(s.shape, s.pts, cfg.CIRCLE_SEGMENTS));
+
   function startStroke() {
     if (myStroke) endStroke();
+    const block = pen === 'block';
+    const m = myState();
+    if (block && (!m || m.dead || m.mana < cfg.BLOCK_MIN_LEN * cfg.BLOCK_COST_PER_UNIT)) { manaFlash = 1; return; }
     const sid = ++strokeCounter;
-    const p0 = [Math.round(mouse.x * 10) / 10, Math.round(mouse.y * 10) / 10];
-    myStroke = { key: me.id + ':' + sid, sid, owner: me.id, color: me.color, shape,
-      pts: shape === 'free' ? [p0] : [p0, p0.slice()], p0, p1: p0.slice(), sent: 0, done: false, doneAt: 0 };
+    const p0 = [round1(cur.x), round1(cur.y)];
+    myStroke = { key: me.id + ':' + sid, sid, owner: me.id, color: me.color, shape, kind: block ? 'block' : 'ink',
+      pts: shape === 'free' ? [p0] : [p0, p0.slice()], p0, p1: p0.slice(), sent: 0, done: false, doneAt: 0,
+      preview: block, budget: block ? m.mana : 0 };
     strokes.set(myStroke.key, myStroke);
   }
 
   function extendStroke() {
     const s = myStroke;
     if (!s) return;
-    const q = [Math.round(mouse.x * 10) / 10, Math.round(mouse.y * 10) / 10];
+    const q = [round1(cur.x), round1(cur.y)];
+    if (s.kind === 'block') {                       // never draw more wall than the mana I have
+      const maxLen = s.budget / cfg.BLOCK_COST_PER_UNIT;
+      if (s.shape === 'free') {
+        const l = s.pts[s.pts.length - 1];
+        const add = Math.hypot(q[0] - l[0], q[1] - l[1]);
+        if (add <= 3 || s.pts.length >= cfg.MAX_STROKE_POINTS) return;
+        const have = polyLength(s.pts);
+        if (have >= maxLen) return;
+        if (have + add > maxLen) { const f = (maxLen - have) / add; q[0] = round1(l[0] + (q[0] - l[0]) * f); q[1] = round1(l[1] + (q[1] - l[1]) * f); }
+        s.pts.push(q);
+      } else {
+        const full = polyLength(polyPts(s.shape, [s.p0, q], cfg.CIRCLE_SEGMENTS));
+        const f = full > maxLen ? maxLen / full : 1;
+        s.p1 = [round1(s.p0[0] + (q[0] - s.p0[0]) * f), round1(s.p0[1] + (q[1] - s.p0[1]) * f)];
+        s.pts[1] = s.p1;
+      }
+      return;
+    }
     if (s.shape === 'free') {
       const l = s.pts[s.pts.length - 1];
       if (s.pts.length < cfg.MAX_STROKE_POINTS && Math.hypot(q[0] - l[0], q[1] - l[1]) > 3) s.pts.push(q);
@@ -334,18 +882,20 @@
     const s = myStroke;
     if (!s) return;
     extendStroke();
-    flushStroke(true);
-    s.done = true; s.doneAt = nowMs();
     myStroke = null;
+    if (s.kind === 'block' && blockLen(s) < cfg.BLOCK_MIN_LEN) { strokes.delete(s.key); return; }   // too short to count
+    flushStroke(s, true);
+    s.done = true; s.doneAt = nowMs();              // ink fades from now; a block stays a dashed preview until the server confirms
     kick();
   }
 
-  cv.addEventListener('pointermove', e => { setMouse(e); if (myStroke) extendStroke(); });
+  cv.addEventListener('pointermove', setMouse);
   cv.addEventListener('pointerdown', e => {
     if (e.button === 2) return;
     setMouse(e);
     if (!me) return;
-    if (drawMode) startStroke(); else doAttack();
+    moveCursor();
+    if (pen !== 'off') startStroke(); else doAttack();
   });
   window.addEventListener('pointerup', () => { if (myStroke) endStroke(); });
   window.addEventListener('pointercancel', () => { if (myStroke) endStroke(); });
@@ -354,23 +904,24 @@
     if (!me || !running) return;
     const k = e.key.toLowerCase();
     if (k === 'h') doHeal();
-    else if (k === 'd') setDrawMode(!drawMode);
-    else if (k === 'escape') setDrawMode(false);
+    else if (k === 'd') setPen(pen === 'ink' ? 'off' : 'ink');
+    else if (k === 'b') setPen(pen === 'block' ? 'off' : 'block');
+    else if (k === 'escape') setPen('off');
     else if (/^[1-4]$/.test(k)) { shape = SHAPES[+k - 1]; syncTouchButtons(); }
     else if (k === ' ') { e.preventDefault(); doAttack(); }
   });
 
   // touch buttons (shown only on touch devices)
-  const touch = document.getElementById('touch');
-  const bHeal = document.getElementById('bHeal'), bDraw = document.getElementById('bDraw'), bShape = document.getElementById('bShape');
+  const bHeal = $('bHeal'), bInk = $('bInk'), bBlock = $('bBlock'), bShape = $('bShape');
   function syncTouchButtons() {
-    bDraw.classList.toggle('on', drawMode);
+    bInk.classList.toggle('on', pen === 'ink');
+    bBlock.classList.toggle('on', pen === 'block');
     bShape.textContent = SHAPE_NAMES[shape];
   }
   bHeal.addEventListener('click', doHeal);
-  bDraw.addEventListener('click', () => setDrawMode(!drawMode));
+  bInk.addEventListener('click', () => setPen(pen === 'ink' ? 'off' : 'ink'));
+  bBlock.addEventListener('click', () => setPen(pen === 'block' ? 'off' : 'block'));
   bShape.addEventListener('click', () => { shape = SHAPES[(SHAPES.indexOf(shape) + 1) % SHAPES.length]; syncTouchButtons(); });
-  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) touch.style.display = 'flex';
 
   window.addEventListener('pagehide', () => {
     if (me && navigator.sendBeacon) navigator.sendBeacon(BASE + 'api/leave', JSON.stringify({ id: me.id, token: me.token }));
@@ -395,7 +946,7 @@
   function drawPlayer(p, isMe) {
     const r = roster.get(p.id);
     if (!r) return;
-    const px = isMe ? X(mouse.x) : X(p.rx), py = isMe ? Y(mouse.y) : Y(p.ry);
+    const px = isMe ? X(cur.x) : X(p.rx), py = isMe ? Y(cur.y) : Y(p.ry);
     if (p.shield && !p.dead) {
       ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(px + 6, py + 9, 16 * Math.max(0.8, cs * 1.6), 16 * Math.max(0.8, cs * 1.6), 0, 0, Math.PI * 2); ctx.stroke();
@@ -404,14 +955,23 @@
     if (p.dead) return;
     ctx.textAlign = 'center';
     ctx.font = '600 10px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillText(r.name, px + 9, py - 17);
-    ctx.fillStyle = isMe ? '#ffffff' : r.color; ctx.fillText(r.name, px + 8, py - 18);
-    const bw = 26, bx = px - 4, by = py - 13;
-    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx, by, bw, 3);
-    ctx.fillStyle = p.hp > 35 ? '#4ade80' : '#f87171'; ctx.fillRect(bx, by, bw * p.hp / cfg.MAX_HP, 3);
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillText(r.name, px + 9, py - (inLobby() ? 8 : 17));
+    ctx.fillStyle = isMe ? '#ffffff' : r.color; ctx.fillText(r.name, px + 8, py - (inLobby() ? 9 : 18));
+    if (!inLobby()) {
+      const bw = 26, bx = px - 4, by = py - 13;
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx, by, bw, 3);
+      ctx.fillStyle = p.hp > 35 ? '#4ade80' : '#f87171'; ctx.fillRect(bx, by, bw * p.hp / cfg.MAX_HP, 3);
+    }
   }
 
-  function drawStroke(s, t) {
+  function tracePoly(poly) {
+    ctx.beginPath();
+    ctx.moveTo(X(poly[0][0]), Y(poly[0][1]));
+    for (const q of poly) ctx.lineTo(X(q[0]), Y(q[1]));
+    if (poly.length === 1) ctx.lineTo(X(poly[0][0]) + 0.1, Y(poly[0][1]));
+  }
+
+  function drawInk(s, t) {
     const age = s.done ? (t - s.doneAt) / 1000 : 0;
     const a = Math.max(0, 1 - age / cfg.DRAW_FADE);
     if (a <= 0 || !s.pts.length) return;
@@ -419,19 +979,75 @@
     ctx.globalAlpha = a;
     ctx.strokeStyle = s.color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.shadowColor = s.color; ctx.shadowBlur = 10;
-    ctx.beginPath();
-    if (s.shape === 'free') {
-      ctx.moveTo(X(s.pts[0][0]), Y(s.pts[0][1]));
-      for (const q of s.pts) ctx.lineTo(X(q[0]), Y(q[1]));
-      if (s.pts.length === 1) ctx.lineTo(X(s.pts[0][0]) + 0.1, Y(s.pts[0][1]));
-    } else if (s.pts.length >= 2) {
+    if (s.shape === 'free') tracePoly(s.pts);
+    else if (s.pts.length >= 2) {
       const [p0, p1] = s.pts;
+      ctx.beginPath();
       if (s.shape === 'line') { ctx.moveTo(X(p0[0]), Y(p0[1])); ctx.lineTo(X(p1[0]), Y(p1[1])); }
       else if (s.shape === 'rect') ctx.rect(X(p0[0]), Y(p0[1]), X(p1[0] - p0[0]), Y(p1[1] - p0[1]));
-      else ctx.ellipse(X(p0[0]), Y(p0[1]), Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * sx, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * sy, 0, 0, Math.PI * 2);
+      else { const r = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]); ctx.ellipse(X(p0[0]), Y(p0[1]), r * sx, r * sy, 0, 0, Math.PI * 2); }
     }
     ctx.stroke();
     ctx.restore();
+  }
+
+  // Block walls: thick, solid-looking, with a bright core. A dashed ghost while it's still being drawn/confirmed,
+  // and it fades out during its last second.
+  function drawBlock(s, t) {
+    const poly = polyPts(s.shape, s.pts, cfg.CIRCLE_SEGMENTS);
+    if (poly.length < 2) return;
+    let a = 0.5;
+    if (!s.preview) { const rem = (s.expireAt - t) / 1000; a = rem < 1 ? Math.max(0, rem) : 1; }
+    if (a <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    tracePoly(poly);
+    ctx.setLineDash(s.preview ? [9, 7] : []);
+    ctx.strokeStyle = s.color; ctx.lineWidth = 9; ctx.shadowColor = s.color; ctx.shadowBlur = 14;
+    ctx.stroke();
+    ctx.shadowBlur = 0; ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2.5;
+    tracePoly(poly);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Lobby portals: hold your cursor inside one for PORTAL_DWELL seconds to travel.
+  function drawPortals(t) {
+    const R = cfg.PORTAL_R;
+    for (const q of portals) {
+      const x = X(q.x), y = Y(q.y), rx = R * sx, ry = R * sy;
+      const col = q.kind === 'random' ? '#ffd84d' : q.kind === 'private' ? '#b25cff' : (q.full ? '#6b7280' : '#33d6ff');
+      const mineHere = you.pt && you.pt[0] === q.id;
+      ctx.save();
+      const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+      g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = (q.full ? 0.12 : 0.22) + (mineHere ? 0.18 : 0) + 0.05 * Math.sin(t / 400 + q.x);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = q.full ? 0.5 : 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.setLineDash([14, 10]); ctx.lineDashOffset = -t / 45;
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.ellipse(x, y, rx * 0.78, ry * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = q.full ? 0.5 : 1;
+      ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.font = '700 30px system-ui, sans-serif';
+      ctx.fillText(q.kind === 'random' ? '?' : q.kind === 'private' ? '+' : q.label.replace('World ', ''), x, y + 11);
+      ctx.fillStyle = '#e6edf3'; ctx.font = '600 13px system-ui, sans-serif';
+      ctx.fillText(q.label, x, y + ry + 20);
+      ctx.fillStyle = q.full ? '#f87171' : 'rgba(230,237,243,.65)'; ctx.font = '12px system-ui, sans-serif';
+      const sub = q.kind === 'random' ? q.count + ' playing' : q.kind === 'private' ? 'invite only' : (q.full ? 'FULL' : q.count + ' / ' + q.max);
+      ctx.fillText(sub, x, y + ry + 36);
+      if (mineHere) {                                    // my dwell progress, straight from the server
+        const p = clamp(you.pt[1] + (nowMs() - you.rcv) / 1000 / cfg.PORTAL_DWELL, 0, 1);
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.ellipse(x, y, rx + 9, ry + 9, 0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p); ctx.stroke();
+        ctx.fillStyle = '#ffffff'; ctx.font = '700 15px system-ui, sans-serif';
+        ctx.fillText(Math.max(1, Math.ceil((1 - p) * cfg.PORTAL_DWELL)) + '', x, y - ry - 16);
+      }
+      ctx.restore();
+    }
   }
 
   function bar(x, y, w, h, frac, color, label, flash) {
@@ -448,13 +1064,21 @@
     const t = nowMs();
     const dt = Math.min(0.1, (t - lastFrame) / 1000); lastFrame = t;
 
+    moveCursor();
+    if (myStroke) extendStroke();
+
     // smooth remote cursors toward their latest server position
     const k = 1 - Math.exp(-dt * 16);
     for (const p of players.values()) { p.rx += (p.x - p.rx) * k; p.ry += (p.y - p.ry) * k; }
     hurt = Math.max(0, hurt - dt * 3); manaFlash = Math.max(0, manaFlash - dt * 2.5);
 
-    // expire finished drawings, effects and old feed lines
-    for (const [key, s] of strokes) if (s.done && t - s.doneAt > cfg.DRAW_FADE * 1000) strokes.delete(key);
+    // expire finished drawings, walls, effects and old feed lines
+    for (const [key, s] of strokes) {
+      if (s.kind === 'block') {
+        if (s.preview) { if (s.done && t - s.doneAt > 1500) strokes.delete(key); }       // never confirmed -> rejected
+        else if (t >= s.expireAt) { strokes.delete(key); wallsDirty = true; }
+      } else if (s.done && t - s.doneAt > cfg.DRAW_FADE * 1000) strokes.delete(key);
+    }
     for (let i = rings.length - 1; i >= 0; i--) if (t - rings[i].t > rings[i].life) rings.splice(i, 1);
     for (let i = floaters.length - 1; i >= 0; i--) if (t - floaters[i].t > 900) floaters.splice(i, 1);
     while (feed.length && t - feed[feed.length - 1].t > 6000) feed.pop();
@@ -468,7 +1092,8 @@
     ctx.stroke();
 
     if (me) {
-      for (const s of strokes.values()) drawStroke(s, t);
+      if (inLobby()) drawPortals(t);
+      for (const s of strokes.values()) if (s.kind === 'block') drawBlock(s, t); else drawInk(s, t);
 
       for (const r of rings) {
         const p = (t - r.t) / r.life, rad = r.r + (r.max - r.r) * p;
@@ -480,7 +1105,14 @@
 
       for (const p of players.values()) if (p.id !== me.id) drawPlayer(p, false);
       const m = myState();
-      if (m) drawPlayer(m, true);
+      if (m) {
+        // when a wall holds my cursor back, show where the real mouse is
+        if (!m.dead && Math.hypot((mouse.x - cur.x) * sx, (mouse.y - cur.y) * sy) > 14) {
+          ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(X(mouse.x), Y(mouse.y), 6, 0, Math.PI * 2); ctx.stroke();
+        }
+        drawPlayer(m, true);
+      }
 
       for (const f of floaters) {
         const p = (t - f.t) / 900;
@@ -490,10 +1122,15 @@
         ctx.globalAlpha = 1;
       }
 
-      if (drawMode) {
-        const mx = X(mouse.x), my = Y(mouse.y);
+      if (pen !== 'off') {
+        const mx = X(cur.x), my = Y(cur.y);
         ctx.strokeStyle = me.color; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(mx - 10, my); ctx.lineTo(mx + 10, my); ctx.moveTo(mx, my - 10); ctx.lineTo(mx, my + 10); ctx.stroke();
+        if (pen === 'block') ctx.strokeRect(mx - 5, my - 5, 10, 10);
+        if (myStroke && myStroke.kind === 'block') {
+          ctx.fillStyle = '#ff9b9b'; ctx.font = '700 12px system-ui, sans-serif'; ctx.textAlign = 'left';
+          ctx.fillText('-' + Math.ceil(blockLen(myStroke) * cfg.BLOCK_COST_PER_UNIT) + ' mana', mx + 14, my + 22);
+        }
       }
 
       drawHud(m);
@@ -508,32 +1145,55 @@
     requestAnimationFrame(frame);
   }
 
+  function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
   function drawHud(m) {
-    const hp = m ? m.hp : 0, mana = m ? m.mana : 0;
-    bar(16, 16, 200, 16, hp / cfg.MAX_HP, hp > 35 ? '#4ade80' : '#f87171', 'HP ' + hp);
-    bar(16, 38, 200, 16, mana / cfg.MAX_MANA, '#4aa8ff', 'Mana ' + mana, manaFlash);
-    const hc = remaining(you.hc);
-    bar(16, 60, 200, 14, 1 - hc / cfg.HEAL_CD, '#a78bfa', hc > 0 ? 'Heal ' + hc.toFixed(1) + 's' : 'Heal ready');
+    const lobby = inLobby();
+    if (!lobby) {
+      const hp = m ? m.hp : 0, mana = m ? m.mana : 0;
+      bar(16, 16, 200, 16, hp / cfg.MAX_HP, hp > 35 ? '#4ade80' : '#f87171', 'HP ' + hp);
+      bar(16, 38, 200, 16, mana / cfg.MAX_MANA, '#4aa8ff', 'Mana ' + mana, manaFlash);
+      if (myStroke && myStroke.kind === 'block') {                       // preview what this wall will cost
+        const cost = Math.min(mana, blockLen(myStroke) * cfg.BLOCK_COST_PER_UNIT);
+        ctx.fillStyle = 'rgba(255,90,90,.6)';
+        ctx.fillRect(16 + 200 * (mana - cost) / cfg.MAX_MANA, 38, 200 * cost / cfg.MAX_MANA, 16);
+      }
+      const hc2 = remaining(you.hc);
+      bar(16, 60, 200, 14, 1 - hc2 / cfg.HEAL_CD, '#a78bfa', hc2 > 0 ? 'Heal ' + hc2.toFixed(1) + 's' : 'Heal ready');
+    }
 
     ctx.textAlign = 'left'; ctx.font = '12px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.75)';
-    ctx.fillText('Click / Space: attack   H / Right-click: heal   D: draw mode   1-4: shape   Esc: exit draw', 16, H - 16);
+    ctx.fillText(lobby
+      ? 'Hold your cursor inside a portal for ' + cfg.PORTAL_DWELL + ' seconds to travel   ·   D: ink   ·   1-4: shape'
+      : 'Click / Space: attack   H / Right-click: heal   D: ink   B: block wall   1-4: shape   Esc: stop drawing', 16, H - 16);
     ctx.fillStyle = 'rgba(255,255,255,.4)';
-    ctx.fillText(players.size + ' online · ' + Math.round(rtt) + ' ms', 16, H - 34);
-    if (drawMode) {
+    ctx.fillText((world ? world.count : players.size) + ' here · ' + Math.round(rtt) + ' ms', 16, H - 34);
+    if (pen !== 'off') {
       ctx.fillStyle = me.color; ctx.font = '600 13px system-ui, sans-serif';
-      ctx.fillText('DRAW MODE — ' + SHAPE_NAMES[shape] + '  (1 free · 2 line · 3 box · 4 circle)', 16, H - 54);
+      const label = pen === 'ink'
+        ? 'INK (cosmetic) — ' + SHAPE_NAMES[shape] + '   (1 free · 2 line · 3 box · 4 circle)'
+        : 'BLOCK WALL — ' + SHAPE_NAMES[shape] + ' · others can\'t cross · lasts ' + cfg.BLOCK_LIFE + 's · ' +
+          Math.round(cfg.BLOCK_COST_PER_UNIT * 100) + ' mana per 100 units';
+      ctx.fillText(label, 16, H - 54);
+    }
+
+    if (solo !== null && world && world.kind === 'private') {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#d9b8ff'; ctx.font = '600 13px system-ui, sans-serif';
+      ctx.fillText('You\'re alone in this private world — it closes in ' + fmtTime(solo) + '. Copy the invite link and send it to a friend!', W / 2, 80);
     }
 
     // scoreboard
-    const list = [...roster.values()].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).slice(0, 8);
-    if (me && !list.some(r => r.id === me.id) && roster.get(me.id)) list.push(roster.get(me.id));
-    ctx.textAlign = 'right'; ctx.font = '600 12px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillText('KILLS', W - 16, 24);
-    list.forEach((r, i) => {
-      ctx.fillStyle = r.color;
-      ctx.fillText((r.id === me.id ? '▸ ' : '') + r.name + '  ' + r.kills, W - 16, 44 + i * 18);
-    });
-    ctx.font = '12px system-ui, sans-serif';
+    if (!lobby) {
+      const list = [...roster.values()].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).slice(0, 8);
+      if (me && !list.some(r => r.id === me.id) && roster.get(me.id)) list.push(roster.get(me.id));
+      ctx.textAlign = 'right'; ctx.font = '600 12px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillText('KILLS', W - 16, 24);
+      list.forEach((r, i) => {
+        ctx.fillStyle = r.color;
+        ctx.fillText((r.id === me.id ? '▸ ' : '') + r.name + '  ' + r.kills, W - 16, 44 + i * 18);
+      });
+    }
+    ctx.textAlign = 'right'; ctx.font = '12px system-ui, sans-serif';
     const tNow = nowMs();
     feed.forEach((e, i) => {
       ctx.globalAlpha = Math.max(0.15, 0.9 - i * 0.14 - Math.max(0, (tNow - e.t - 4500) / 1500));
@@ -545,39 +1205,19 @@
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = '700 28px system-ui, sans-serif';
       ctx.fillText('Respawning in ' + Math.max(1, Math.ceil(remaining(you.rs))) + '…', W / 2, H / 2);
     }
-    document.getElementById('banner').style.display = banner ? 'block' : 'none';
-    document.getElementById('banner').textContent = banner;
+    $('banner').style.display = banner ? 'block' : 'none';
+    $('banner').textContent = banner;
   }
 
-  // ---------- Menu / start ----------
-  const menu = document.getElementById('menu');
-  const form = document.getElementById('joinForm');
-  const nameInput = document.getElementById('nameInput');
-  const playBtn = document.getElementById('playBtn');
-  const err = document.getElementById('err');
+  // ---------- Start ----------
   const params = new URLSearchParams(location.search);
-
-  try { nameInput.value = params.get('name') || localStorage.getItem('cc_name') || ''; } catch (e) { nameInput.value = params.get('name') || ''; }
-
-  async function begin(name) {
-    err.textContent = ''; playBtn.disabled = true;
-    try {
-      await join(name);
-      try { localStorage.setItem('cc_name', me.name); } catch (e) { /* ignore */ }
-      menu.classList.add('hidden');
-      document.body.classList.add('playing');
-      running = true;
-      syncTouchButtons();
-      pollLoop();
-    } catch (e) {
-      err.textContent = (e && e.message) || 'Could not connect.';
-      playBtn.disabled = false;
-    }
-  }
-  form.addEventListener('submit', e => { e.preventDefault(); begin(nameInput.value); });
-
+  const w = (params.get('w') || '').toLowerCase();
+  if (/^[a-z0-9]{4,16}$/.test(w)) { inviteCode = w; $('inviteNote').classList.remove('hidden'); }
+  nameInput.value = (params.get('name') || load('cc_name') || '').slice(0, 16);
+  updatePlayButton();
+  if (needsHold()) prepareChallenge();
   requestAnimationFrame(frame);
-  if (params.get('autoplay') === '1') begin(nameInput.value); else nameInput.focus();
+  nameInput.focus();
 })();
 </script>
 </body>

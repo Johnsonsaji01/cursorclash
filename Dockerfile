@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json ./
 COPY server.js ./
+COPY lib ./lib
 COPY public ./public
 
 ENV NODE_ENV=production \
