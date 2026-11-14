@@ -353,6 +353,7 @@
         rings.push({ x: ev.x, y: ev.y, r: 8, max: 70, t: nowMs(), life: 500, color: colorOf(ev.victim), kind: 'atk' });
         addFeed(ev.kn + ' clashed ' + ev.vn, colorOf(ev.killer));
         break;
+      case 'msg': addFeed('📢 ' + ev.n, '#ffd166'); notify('📢 ' + ev.n, 9000); break;   // sent by the admin
       case 'join': addFeed(ev.n + ' joined', '#8b949e'); break;
       case 'leave': addFeed(ev.n + ' left', '#8b949e'); break;
       case 'stroke': {
@@ -517,6 +518,8 @@
       if (reason === 'verify') needCheck('Quick check — hold the button to continue.');
       else if (reason === 'banned') { ticket = null; saveTicket(); showMenu(message || 'Too many automated-looking actions. Try again in a few minutes.'); }
       else if (reason === 'closed') await goLobbyAfterClose('That private world closed — you were alone in it for too long.');
+      else if (reason === 'admin-closed') await goLobbyAfterClose('An admin closed that world — you\'re back in the lobby.');
+      else if (reason === 'kicked') { inviteCode = null; await enterLobby(); notify('You were removed from the game by an admin.', 7000); }
       else {                                  // dropped (tab was asleep, network blip): try to slip back in
         banner = '';
         if (prev && prev.kind !== 'lobby') {

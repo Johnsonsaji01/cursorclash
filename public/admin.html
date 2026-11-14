@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>CursorClash Admin</title>
+<style>
+  :root{--bg:#0b0f14;--panel:#121923;--panel2:#18212e;--line:#243142;--text:#e6edf3;--mute:#8b98a9;--acc:#4da3ff;--ok:#3ddc97;--warn:#ffb84d;--bad:#ff6b6b}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  button,input,select,textarea{font:inherit;color:inherit}
+  .hidden{display:none!important}
+  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn:hover{border-color:var(--acc)}
+  .btn.pri{background:var(--acc);border-color:var(--acc);color:#04101f;font-weight:600}
+  .btn.bad{border-color:#5a2a2a;color:var(--bad)}.btn.bad:hover{background:#2a1416;border-color:var(--bad)}
+  .btn.sm{padding:3px 8px;font-size:12px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=password],input[type=number],select,textarea{background:#0d131b;border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+  label{display:block;color:var(--mute);font-size:12px;margin:10px 0 4px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .auth{min-height:100vh;display:grid;place-items:center;padding:16px}
+  .auth .card{width:100%;max-width:380px}
+  h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:0 0 10px}
+  .sub{color:var(--mute);margin:0 0 14px}
+  .msg{margin-top:10px;padding:8px 10px;border-radius:8px;font-size:13px}
+  .msg.err{background:#2a1416;color:#ffb3b3;border:1px solid #5a2a2a}
+  .msg.ok{background:#11271e;color:#9be9c3;border:1px solid #1d4a37}
+  .msg.warn{background:#2a2112;color:#ffd699;border:1px solid #5a4620}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+  header .t{font-weight:700;font-size:16px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;border:1px solid var(--line);color:var(--mute)}
+  .pill.ok{color:var(--ok);border-color:#1d4a37}.pill.warn{color:var(--warn);border-color:#5a4620}.pill.bad{color:var(--bad);border-color:#5a2a2a}
+  .sp{flex:1}
+  .mute{color:var(--mute)}
+  nav{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid var(--line);overflow-x:auto}
+  nav button{background:none;border:0;border-radius:8px;padding:8px 14px;color:var(--mute);cursor:pointer;white-space:nowrap}
+  nav button.on{background:var(--panel2);color:var(--text)}
+  main{padding:16px;max-width:1200px;margin:0 auto}
+  .grid{display:grid;gap:12px}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .stat .n{font-size:26px;font-weight:700}.stat .l{color:var(--mute);font-size:12px}
+  .two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--mute);font-weight:500;font-size:12px}
+  td.wrap{white-space:normal;word-break:break-word}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .row>*{flex:0 0 auto}.row .grow{flex:1 1 180px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .chip{border:1px solid var(--line);background:none;border-radius:99px;padding:3px 10px;font-size:12px;color:var(--mute);cursor:pointer}
+  .chip.on{background:var(--panel2);color:var(--text);border-color:var(--acc)}
+  .tag{display:inline-block;min-width:92px;font-size:11px;padding:1px 7px;border-radius:6px;background:var(--panel2);color:var(--mute);text-align:center}
+  .tag.t-kill{color:#ff9a9a}.tag.t-ban,.tag.t-admin-lock,.tag.t-strike,.tag.t-admin-fail,.tag.t-verify-fail,.tag.t-ratelimit,.tag.t-join-fail{color:var(--bad)}
+  .tag.t-admin-login,.tag.t-admin-action,.tag.t-broadcast{color:var(--warn)}.tag.t-join,.tag.t-world-open,.tag.t-verify-ok{color:var(--ok)}.tag.t-private,.tag.t-portal{color:var(--acc)}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+  .logbox{max-height:62vh;overflow:auto}
+  .empty{color:var(--mute);padding:14px;text-align:center}
+  svg text{fill:var(--mute);font-size:10px}
+  .switch{display:flex;align-items:center;gap:8px}
+  @media(max-width:600px){main{padding:10px}}
+</style>
+</head>
+<body>
+
+<!-- sign in -->
+<section id="vLogin" class="auth hidden">
+  <form class="card" id="fLogin" autocomplete="off">
+    <h1>CursorClash admin</h1>
+    <p class="sub">Sign in to manage the game.</p>
+    <label for="lpw">Password</label>
+    <input id="lpw" type="password" autocomplete="current-password" autofocus>
+    <div class="row" style="margin-top:14px"><button class="btn pri grow" id="lbtn" type="submit">Sign in</button></div>
+    <div id="lmsg"></div>
+  </form>
+</section>
+
+<!-- choose a new password (forced after the default one) -->
+<section id="vChange" class="auth hidden">
+  <form class="card" id="fChange" autocomplete="off">
+    <h1>Choose a new password</h1>
+    <p class="sub" id="chSub">You signed in with the starting password. Set your own before continuing.</p>
+    <label for="cpCur">Current password</label>
+    <input id="cpCur" type="password" autocomplete="current-password">
+    <label for="cpNew">New password (8+ characters)</label>
+    <input id="cpNew" type="password" autocomplete="new-password">
+    <label for="cpNew2">Repeat new password</label>
+    <input id="cpNew2" type="password" autocomplete="new-password">
+    <div class="row" style="margin-top:14px"><button class="btn pri grow" type="submit">Save password</button></div>
+    <div id="cmsg"></div>
+  </form>
+</section>
+
+<!-- dashboard -->
+<section id="vApp" class="hidden">
+  <header>
+    <span class="t">CursorClash admin</span>
+    <span class="pill" id="hVer"></span>
+    <span class="pill" id="hUp"></span>
+    <span class="pill warn hidden" id="hMaint">Maintenance ON</span>
+    <span class="pill bad hidden" id="hPersist">Not saving to disk</span>
+    <span class="sp"></span>
+    <button class="btn sm" id="bLogout">Sign out</button>
+  </header>
+  <nav id="tabs"></nav>
+  <main>
+    <div id="pOverview"></div>
+    <div id="pPlayers" class="hidden"></div>
+    <div id="pWorlds" class="hidden"></div>
+    <div id="pLogs" class="hidden"></div>
+    <div id="pSecurity" class="hidden"></div>
+    <div id="pSettings" class="hidden"></div>
+  </main>
+</section>
+
+<script>
+(() => {
+  'use strict';
+  const BASE = location.pathname.replace(/\/admin(\.html)?\/?$/, '').replace(/\/$/, '');
+  const $ = id => document.getElementById(id);
+
+  // ---------- tiny DOM helper (text only: nothing from the game is ever inserted as HTML) ----------
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+      if (v === false || v == null) continue;
+      if (k === 'class') el.className = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+      else if (v === true) el.setAttribute(k, '');
+      else el.setAttribute(k, v);
+    }
+    for (const c of kids.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return el;
+  }
+  const clear = el => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
+
+  async function api(route, body) {
+    let res;
+    try {
+      res = await fetch(BASE + '/api/admin/' + route, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CC-Admin': '1' }, body: JSON.stringify(body || {})
+      });
+    } catch (e) { return { status: 0, data: { error: 'Could not reach the server.' } }; }
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* ignore */ }
+    if (res.status === 401 && data && data.code === 'auth' && route !== 'login') { stopPolling(); show('login'); }
+    return { status: res.status, data: data || {} };
+  }
+
+  const fmtDur = s => { s = Math.max(0, Math.round(s)); const d = Math.floor(s / 86400), hr = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'd ' + hr + 'h' : hr ? hr + 'h ' + m + 'm' : m ? m + 'm ' + (s % 60) + 's' : s + 's'; };
+  const pad = n => String(n).padStart(2, '0');
+  const fmtTime = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+  const fmtFull = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + fmtTime(t); };
+  const fmtLog = t => (Date.now() - t > 20 * 3600 * 1000 ? pad(new Date(t).getDate()) + '/' + pad(new Date(t).getMonth() + 1) + ' ' : '') + fmtTime(t);
+  const msg = (cls, text) => h('div', { class: 'msg ' + cls }, text);
+
+  // ---------- views ----------
+  let view = '';
+  function show(v) {
+    view = v;
+    $('vLogin').classList.toggle('hidden', v !== 'login');
+    $('vChange').classList.toggle('hidden', v !== 'change');
+    $('vApp').classList.toggle('hidden', v !== 'app');
+    if (v === 'login') { $('lpw').value = ''; setTimeout(() => $('lpw').focus(), 0); }
+    if (v === 'change') setTimeout(() => $('cpCur').focus(), 0);
+  }
+
+  // ---------- login ----------
+  let lockTimer = null;
+  function lockCountdown(secs) {
+    clearInterval(lockTimer);
+    const end = Date.now() + secs * 1000;
+    const tick = () => {
+      const left = Math.ceil((end - Date.now()) / 1000);
+      if (left <= 0) { clearInterval(lockTimer); $('lbtn').disabled = false; clear($('lmsg')); return; }
+      $('lbtn').disabled = true;
+      clear($('lmsg')).append(msg('err', 'Locked out after too many wrong passwords. Try again in ' + fmtDur(left) + '.'));
+    };
+    tick(); lockTimer = setInterval(tick, 1000);
+  }
+  $('fLogin').addEventListener('submit', async e => {
+    e.preventDefault();
+    const pw = $('lpw').value;
+    if (!pw) return;
+    $('lbtn').disabled = true;
+    const r = await api('login', { password: pw });
+    $('lpw').value = '';
+    if (r.status === 200) {
+      clear($('lmsg'));
+      if (r.data.mustChange) { $('cpCur').value = pw; $('chSub').textContent = 'You signed in with the starting password. Set your own before continuing.'; show('change'); $('cpNew').focus(); }
+      else start();
+      $('lbtn').disabled = false;
+      return;
+    }
+    if (r.status === 423) { lockCountdown(r.data.retryAfter || 900); return; }
+    $('lbtn').disabled = false;
+    clear($('lmsg')).append(msg('err', r.data.error || 'Sign in failed.'));
+  });
+
+  // ---------- change password ----------
+  let changeFromSettings = false;
+  $('fChange').addEventListener('submit', async e => {
+    e.preventDefault();
+    const out = clear($('cmsg'));
+    const a = $('cpNew').value, b = $('cpNew2').value;
+    if (a.length < 8) return out.append(msg('err', 'Use at least 8 characters.'));
+    if (a !== b) return out.append(msg('err', 'The two new passwords don\'t match.'));
+    const r = await api('password', { current: $('cpCur').value, password: a });
+    if (r.status !== 200) return out.append(msg('err', r.data.error || 'Could not change the password.'));
+    $('cpCur').value = $('cpNew').value = $('cpNew2').value = '';
+    start(r.data.persisted === false ? 'Password changed, but it could not be saved to disk — it will reset on the next restart. Mount a persistent volume at the data folder.' : null);
+  });
+
+  $('bLogout').addEventListener('click', async () => { await api('logout'); stopPolling(); show('login'); });
+
+  // ---------- tabs ----------
+  const TABS = [['Overview', 'pOverview'], ['Players', 'pPlayers'], ['Worlds', 'pWorlds'], ['Logs', 'pLogs'], ['Security', 'pSecurity'], ['Settings', 'pSettings']];
+  let tab = 'pOverview';
+  function buildTabs() {
+    clear($('tabs'));
+    for (const [name, id] of TABS) $('tabs').append(h('button', { class: id === tab ? 'on' : '', onclick: () => setTab(id) }, name));
+  }
+  function setTab(id) {
+    tab = id; buildTabs();
+    for (const [, pid] of TABS) $(pid).classList.toggle('hidden', pid !== id);
+    try { sessionStorage.setItem('cc_admin_tab', id); } catch (e) { /* ignore */ }
+    refresh(true);
+  }
+
+  // ---------- polling ----------
+  let timer = null, data = null, stats = null, statsAt = 0, busy = false, banner = null;
+  function stopPolling() { clearInterval(timer); timer = null; }
+  async function start(note) {
+    banner = note || null;
+    show('app');
+    try { const t = sessionStorage.getItem('cc_admin_tab'); if (t && TABS.some(x => x[1] === t)) tab = t; } catch (e) { /* ignore */ }
+    buildTabs();
+    for (const [, pid] of TABS) $(pid).classList.toggle('hidden', pid !== tab);
+    await refresh(true);
+    stopPolling(); timer = setInterval(() => refresh(false), 3000);
+  }
+  async function refresh(force) {
+    if (busy || document.hidden && !force) return;
+    busy = true;
+    try {
+      const r = await api('overview');
+      if (r.status === 403 && r.data.code === 'mustChange') { stopPolling(); show('change'); return; }
+      if (r.status !== 200) return;
+      data = r.data;
+      if (tab === 'pOverview' && (force || Date.now() - statsAt > 30000)) { const s = await api('stats'); if (s.status === 200) { stats = s.data.samples; statsAt = Date.now(); } }
+      renderHeader();
+      if (tab === 'pLogs') await renderLogs(force);
+      else if (!editing()) render();
+    } finally { busy = false; }
+  }
+  // don't rebuild a panel while the admin is typing in one of its fields
+  const editing = () => { const a = document.activeElement; return a && ['INPUT', 'SELECT', 'TEXTAREA'].includes(a.tagName) && $('vApp').contains(a); };
+
+  function renderHeader() {
+    $('hVer').textContent = 'v' + data.version;
+    $('hUp').textContent = 'up ' + fmtDur(data.uptime);
+    $('hMaint').classList.toggle('hidden', !data.maintenance.on);
+    $('hPersist').classList.toggle('hidden', !(data.persist.enabled ? !data.persist.ok : true));
+    $('hPersist').textContent = data.persist.enabled ? 'Disk write failing' : 'Not saving to disk';
+    $('hPersist').title = data.persist.enabled ? 'The data folder is not writable.' : 'No data folder is configured, so the log, bans, settings and password reset on every restart.';
+  }
+
+  function render() {
+    if (!data) return;
+    if (tab === 'pOverview') renderOverview();
+    else if (tab === 'pPlayers') renderPlayers();
+    else if (tab === 'pWorlds') renderWorlds();
+    else if (tab === 'pSecurity') renderSecurity();
+    else if (tab === 'pSettings') renderSettings();
+  }
+
+  async function act(route, body, okText) {
+    const r = await api(route, body);
+    if (r.status !== 200) alert(r.data.error || 'That did not work.');
+    await refresh(true);
+    return r;
+  }
+
+  // ---------- overview ----------
+  function chart(samples) {
+    const W = 760, H = 190, L = 34, B = 20, T = 8, R = 8;
+    const now = Date.now(), t0 = now - 24 * 3600 * 1000;
+    const maxV = Math.max(5, ...samples.map(s => s.players));
+    const top = Math.ceil(maxV / 5) * 5;
+    const X = t => L + (t - t0) / (now - t0) * (W - L - R), Y = v => T + (1 - v / top) * (H - T - B);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('width', '100%'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Players online over the last 24 hours');
+    const el = (n, a, txt) => { const e = document.createElementNS('http://www.w3.org/2000/svg', n); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.append(e); return e; };
+    for (let i = 0; i <= 4; i++) { const v = top * i / 4, y = Y(v); el('line', { x1: L, x2: W - R, y1: y, y2: y, stroke: '#243142', 'stroke-width': 1 }); el('text', { x: L - 5, y: y + 3, 'text-anchor': 'end' }, Math.round(v)); }
+    for (let i = 0; i <= 6; i++) { const t = t0 + (now - t0) * i / 6; el('text', { x: X(t), y: H - 5, 'text-anchor': i === 0 ? 'start' : i === 6 ? 'end' : 'middle' }, pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes())); }
+    if (samples.length > 1) {
+      let d = '', a = '';
+      samples.forEach((s, i) => { d += (i ? 'L' : 'M') + X(s.t).toFixed(1) + ' ' + Y(s.players).toFixed(1); });
+      a = d + 'L' + X(samples[samples.length - 1].t).toFixed(1) + ' ' + Y(0) + 'L' + X(samples[0].t).toFixed(1) + ' ' + Y(0) + 'Z';
+      el('path', { d: a, fill: '#4da3ff', 'fill-opacity': .15 });
+      el('path', { d, fill: 'none', stroke: '#4da3ff', 'stroke-width': 2, 'stroke-linejoin': 'round' });
+    } else el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle' }, 'Collecting data… (one sample a minute)');
+    return svg;
+  }
+
+  function stat(n, l) { return h('div', { class: 'card stat' }, h('div', { class: 'n' }, n), h('div', { class: 'l' }, l)); }
+
+  function renderOverview() {
+    const c = data.counts, root = clear($('pOverview'));
+    if (banner) root.append(h('div', { class: 'msg warn', style: { marginBottom: '12px' } }, banner));
+    if (data.mustChangeDefault) root.append(h('div', { class: 'msg err', style: { marginBottom: '12px' } }, 'The admin password is still the default. Change it in Settings.'));
+    root.append(h('div', { class: 'grid stats' },
+      stat(c.players, 'Players online'), stat(c.lobby, 'In the lobby'), stat(c.pub, 'In public worlds'), stat(c.priv, 'In private worlds'),
+      stat(c.worlds.public + c.worlds.private, 'Worlds open'), stat(data.peak24h, 'Peak (24 h)'), stat(data.bans.length, 'Active bans'), stat(data.logSize, 'Log entries (24 h)')));
+    const recent = h('div');
+    root.append(h('div', { class: 'grid two', style: { marginTop: '12px' } },
+      h('div', { class: 'card', style: { gridColumn: '1/-1' } }, h('h2', null, 'Players online — last 24 hours'), chart(stats || [])),
+      h('div', { class: 'card' }, h('h2', null, 'Busiest worlds'), worldMini()),
+      h('div', { class: 'card' }, h('h2', null, 'What happened in 24 h'), typeSummary()),
+      h('div', { class: 'card', style: { gridColumn: '1/-1' } }, h('h2', null, 'Latest activity'), recent)));
+    api('logs', { limit: 12 }).then(r => { if (r.status === 200) recent.append(logTable(r.data.entries, true)); });
+  }
+  function worldMini() {
+    const list = data.worlds.filter(w => w.kind !== 'lobby').sort((a, b) => b.count - a.count).slice(0, 6);
+    if (!list.length) return h('div', { class: 'empty' }, 'No worlds');
+    return h('table', null, ...list.map(w => h('tr', null, h('td', null, w.name + (w.kind === 'private' ? ' · ' + w.id : '')), h('td', null, w.count + ' / ' + w.max), h('td', { class: 'mute' }, w.kind))));
+  }
+  function typeSummary() {
+    const e = Object.entries(data.typeCounts).sort((a, b) => b[1] - a[1]);
+    if (!e.length) return h('div', { class: 'empty' }, 'Nothing yet');
+    return h('table', null, ...e.map(([t, n]) => h('tr', null, h('td', null, h('span', { class: 'tag t-' + t }, t)), h('td', null, n))));
+  }
+
+  // ---------- players ----------
+  let pq = '';
+  function renderPlayers() {
+    const root = clear($('pPlayers'));
+    const q = pq.toLowerCase();
+    const list = data.players.filter(p => !q || (p.name + ' ' + p.ip + ' ' + p.worldName + ' ' + p.world).toLowerCase().includes(q)).sort((a, b) => a.world > b.world ? 1 : a.world < b.world ? -1 : a.id - b.id);
+    const search = h('input', { type: 'text', class: 'grow', placeholder: 'Search name, IP or world', value: pq, oninput: e => { pq = e.target.value; renderPlayers(); const i = $('pPlayers').querySelector('input'); i.focus(); i.setSelectionRange(pq.length, pq.length); } });
+    root.append(h('div', { class: 'card' },
+      h('div', { class: 'row', style: { marginBottom: '8px' } }, h('h2', { style: { margin: 0 } }, 'Players (' + list.length + ')'), search),
+      h('div', { class: 'tw' }, list.length ? h('table', null,
+        h('thead', null, h('tr', null, ...['Player', 'World', 'IP', 'Kills', 'Deaths', 'Online', ''].map(x => h('th', null, x)))),
+        h('tbody', null, ...list.map(p => h('tr', null,
+          h('td', null, h('span', { class: 'dot', style: { background: p.color } }), p.name),
+          h('td', null, p.worldName + (p.kind === 'private' ? ' (' + p.world + ')' : '')),
+          h('td', { class: 'mono' }, p.ip), h('td', null, p.kills), h('td', null, p.deaths), h('td', null, fmtDur(p.online)),
+          h('td', null, h('div', { class: 'row' },
+            h('button', { class: 'btn sm', onclick: () => { if (confirm('Kick ' + p.name + '? They can rejoin straight away.')) act('kick', { id: p.id }); } }, 'Kick'),
+            h('button', { class: 'btn sm bad', onclick: () => { const m = prompt('Ban ' + p.name + ' (' + p.ip + ') for how many minutes?', '60'); if (m && Number(m) > 0) act('kick', { id: p.id, banMinutes: Number(m) }); } }, 'Ban')))))))
+        : h('div', { class: 'empty' }, 'Nobody is online.'))));
+  }
+
+  // ---------- worlds ----------
+  function renderWorlds() {
+    const root = clear($('pWorlds'));
+    const sel = h('select', { id: 'bcWorld' }, h('option', { value: 'all' }, 'All worlds'), ...data.worlds.map(w => h('option', { value: w.id }, w.name + (w.kind === 'private' ? ' (' + w.id + ')' : ''))));
+    const txt = h('input', { type: 'text', class: 'grow', maxlength: 140, placeholder: 'Message shown to players (140 characters)', id: 'bcText' });
+    root.append(
+      h('div', { class: 'card' },
+        h('div', { class: 'row', style: { marginBottom: '8px' } }, h('h2', { style: { margin: 0 } }, 'Worlds (' + data.worlds.length + ')'), h('span', { class: 'sp' }),
+          h('button', { class: 'btn sm', onclick: () => act('create-world') }, '+ New public world')),
+        h('div', { class: 'tw' }, h('table', null,
+          h('thead', null, h('tr', null, ...['World', 'Type', 'ID', 'Players', 'Note', ''].map(x => h('th', null, x)))),
+          h('tbody', null, ...data.worlds.map(w => h('tr', null,
+            h('td', null, w.name), h('td', null, w.kind), h('td', { class: 'mono' }, w.id), h('td', null, w.count + ' / ' + w.max),
+            h('td', null, w.soloFor != null ? 'alone for ' + fmtDur(w.soloFor) : w.creator ? 'made by ' + w.creator : ''),
+            h('td', null, (w.id === 'w1' || w.id === 'l1') ? '' : h('button', { class: 'btn sm bad', onclick: () => { if (confirm('Close ' + w.name + '? Everyone inside is sent back to the lobby.')) act('close-world', { id: w.id }); } }, 'Close')))))))),
+      h('div', { class: 'card', style: { marginTop: '12px' } }, h('h2', null, 'Broadcast a message'),
+        h('div', { class: 'row' }, sel, txt, h('button', { class: 'btn pri', onclick: async () => { const t = $('bcText').value.trim(); if (!t) return; const r = await act('broadcast', { world: $('bcWorld').value, message: t }); if (r.status === 200) $('bcText') && ($('bcText').value = ''); } }, 'Send'))));
+  }
+
+  // ---------- logs ----------
+  const LOG_TYPES = ['join', 'leave', 'kill', 'portal', 'world-open', 'world-close', 'private', 'verify-ok', 'verify-fail', 'join-fail', 'ratelimit', 'strike', 'ban', 'broadcast', 'admin-login', 'admin-fail', 'admin-lock', 'admin-action', 'system'];
+  const lf = { types: new Set(), q: '', limit: 300, hours: 24 };
+  let logData = null, logShell = false;
+  function logTable(entries, compact) {
+    if (!entries.length) return h('div', { class: 'empty' }, 'No entries.');
+    return h('div', { class: 'tw' }, h('table', null, h('tbody', null, ...entries.map(e => h('tr', null,
+      h('td', { class: 'mono', title: fmtFull(e.t) }, fmtLog(e.t)), h('td', null, h('span', { class: 'tag t-' + e.type }, e.type)),
+      h('td', { class: 'wrap' }, e.msg))))));
+  }
+  function buildLogShell() {
+    const root = clear($('pLogs'));
+    const chips = h('div', { class: 'chips', id: 'lgChips' });
+    const search = h('input', { type: 'text', class: 'grow', placeholder: 'Search text or IP', value: lf.q, oninput: e => { lf.q = e.target.value; clearTimeout(buildLogShell.t); buildLogShell.t = setTimeout(() => renderLogs(true), 250); } });
+    const hours = h('select', { onchange: e => { lf.hours = Number(e.target.value); renderLogs(true); } }, ...[[1, 'Last hour'], [6, 'Last 6 hours'], [24, 'Last 24 hours']].map(([v, l]) => h('option', { value: v, selected: v === lf.hours }, l)));
+    const lim = h('select', { onchange: e => { lf.limit = Number(e.target.value); renderLogs(true); } }, ...[100, 300, 1000, 2000].map(v => h('option', { value: v, selected: v === lf.limit }, 'Show ' + v)));
+    root.append(h('div', { class: 'card' },
+      h('div', { class: 'row' }, h('h2', { style: { margin: 0 } }, 'Log'), h('span', { id: 'lgCount', class: 'pill' }), h('span', { class: 'sp' }),
+        h('button', { class: 'btn sm', onclick: () => exportLog('csv') }, 'Export CSV'), h('button', { class: 'btn sm', onclick: () => exportLog('json') }, 'Export JSON'),
+        h('button', { class: 'btn sm bad', onclick: async () => { if (confirm('Delete the whole log? This cannot be undone.')) { await api('clear-log'); renderLogs(true); } } }, 'Clear')),
+      h('div', { class: 'row', style: { marginTop: '10px' } }, search, hours, lim), chips,
+      h('div', { class: 'logbox', id: 'lgBody' })));
+    logShell = true;
+  }
+  function buildChips(counts) {
+    const box = $('lgChips'); if (!box) return;
+    clear(box).append(h('button', { class: 'chip' + (lf.types.size ? '' : ' on'), onclick: () => { lf.types.clear(); renderLogs(true); } }, 'All'));
+    for (const t of LOG_TYPES.concat(Object.keys(counts).filter(x => !LOG_TYPES.includes(x)))) {
+      if (!counts[t] && !lf.types.has(t)) continue;
+      box.append(h('button', { class: 'chip' + (lf.types.has(t) ? ' on' : ''), onclick: () => { lf.types.has(t) ? lf.types.delete(t) : lf.types.add(t); renderLogs(true); } }, t + ' ' + (counts[t] || 0)));
+    }
+  }
+  async function renderLogs(force) {
+    if (!logShell || !$('lgBody') || !$('pLogs').firstChild) buildLogShell();
+    if (!force && editing()) return;
+    const r = await api('logs', { types: [...lf.types], q: lf.q, limit: lf.limit, since: Date.now() - lf.hours * 3600 * 1000 });
+    if (r.status !== 200) return;
+    logData = r.data;
+    buildChips(r.data.counts);
+    $('lgCount').textContent = r.data.entries.length + ' shown · ' + r.data.total + ' in 24 h';
+    const body = $('lgBody'), top = body.scrollTop;
+    clear(body).append(logTable(r.data.entries));
+    body.scrollTop = top;
+  }
+  function exportLog(kind) {
+    if (!logData) return;
+    let text, type;
+    if (kind === 'json') { text = JSON.stringify(logData.entries.map(e => ({ time: new Date(e.t).toISOString(), type: e.type, ip: e.ip || '', world: e.world || '', message: e.msg })), null, 1); type = 'application/json'; }
+    else {
+      const q = s => '"' + String(s).replace(/"/g, '""').replace(/^([=+\-@])/, "'$1") + '"';
+      text = 'time,type,ip,world,message\n' + logData.entries.map(e => [new Date(e.t).toISOString(), e.type, e.ip || '', e.world || '', e.msg].map(q).join(',')).join('\n'); type = 'text/csv';
+    }
+    const a = h('a', { href: URL.createObjectURL(new Blob([text], { type })), download: 'cursorclash-log-' + Date.now() + '.' + kind });
+    document.body.append(a); a.click(); a.remove();
+  }
+
+  // ---------- security ----------
+  function renderSecurity() {
+    const root = clear($('pSecurity'));
+    const ip = h('input', { type: 'text', class: 'grow', placeholder: 'IP address, e.g. 203.0.113.7', id: 'banIp' });
+    const mins = h('input', { type: 'number', min: 0, placeholder: 'Minutes (0 = forever)', id: 'banMin', style: { maxWidth: '190px' } });
+    const reason = h('input', { type: 'text', class: 'grow', placeholder: 'Reason (optional)', id: 'banWhy' });
+    root.append(
+      h('div', { class: 'grid stats' },
+        h('div', { class: 'card stat' }, h('div', { class: 'n' }, h('span', { class: 'pill ' + (data.humanCheck ? 'ok' : 'bad') }, data.humanCheck ? 'on' : 'off')), h('div', { class: 'l' }, 'Human check')),
+        h('div', { class: 'card stat' }, h('div', { class: 'n' }, h('span', { class: 'pill ' + (data.turnstile ? 'ok' : 'warn') }, data.turnstile ? 'on' : 'off')), h('div', { class: 'l' }, 'Cloudflare Turnstile')),
+        h('div', { class: 'card stat' }, h('div', { class: 'n' }, h('span', { class: 'pill ' + (data.rateLimits ? 'ok' : 'bad') }, data.rateLimits ? 'on' : 'off')), h('div', { class: 'l' }, 'Rate limits'))),
+      h('div', { class: 'card', style: { marginTop: '12px' } }, h('h2', null, 'Ban a network'),
+        h('div', { class: 'row' }, ip, mins, reason, h('button', { class: 'btn bad', onclick: async () => { if (!$('banIp').value.trim()) return; const r = await act('ban-ip', { ip: $('banIp').value, minutes: Number($('banMin').value) || 0, reason: $('banWhy').value }); } }, 'Ban'))),
+      h('div', { class: 'card', style: { marginTop: '12px' } }, h('h2', null, 'Active bans (' + data.bans.length + ')'),
+        data.bans.length ? h('div', { class: 'tw' }, h('table', null, h('thead', null, h('tr', null, ...['IP / network', 'Reason', 'Type', 'Ends', ''].map(x => h('th', null, x)))),
+          h('tbody', null, ...data.bans.map(b => h('tr', null, h('td', { class: 'mono' }, b.ip), h('td', { class: 'wrap' }, b.reason), h('td', null, b.manual ? 'manual' : 'automatic'),
+            h('td', null, b.expires - Date.now() > 50 * 365 * 86400000 ? 'never' : fmtFull(b.expires) + ' (' + fmtDur((b.expires - Date.now()) / 1000) + ')'),
+            h('td', null, h('button', { class: 'btn sm', onclick: () => act('unban', { ip: b.ip }) }, 'Unban'))))))) : h('div', { class: 'empty' }, 'No active bans.')),
+      h('div', { class: 'grid two', style: { marginTop: '12px' } },
+        h('div', { class: 'card' }, h('h2', null, 'Auto-clicker strikes'),
+          data.strikes.length ? h('table', null, ...data.strikes.map(s => h('tr', null, h('td', { class: 'mono' }, s.ip), h('td', null, s.count + ' strike' + (s.count > 1 ? 's' : ''))))) : h('div', { class: 'empty' }, 'None right now.')),
+        h('div', { class: 'card' }, h('h2', null, 'Admin login lockouts'),
+          data.locks.length ? h('table', null, ...data.locks.map(l => h('tr', null, h('td', { class: 'mono' }, l.ip), h('td', null, fmtDur((l.until - Date.now()) / 1000) + ' left'), h('td', null, h('button', { class: 'btn sm', onclick: () => act('unlock-admin', { ip: l.ip }) }, 'Unlock'))))) : h('div', { class: 'empty' }, 'No networks are locked out.'))));
+  }
+
+  // ---------- settings ----------
+  function renderSettings() {
+    const root = clear($('pSettings'));
+    const m = data.maintenance;
+    const mText = h('input', { type: 'text', id: 'mtMsg', value: m.message, maxlength: 200 });
+    const mKick = h('input', { type: 'checkbox', id: 'mtKick' });
+    const inputs = {};
+    const rows = data.settings.map(s => {
+      const i = h('input', { type: 'number', value: s.value, min: s.min, max: s.max, step: s.key === 'RESPAWN' ? 0.5 : 1, style: { maxWidth: '120px' } });
+      inputs[s.key] = i;
+      return h('tr', null, h('td', { class: 'wrap' }, s.label), h('td', null, i), h('td', { class: 'mute' }, 'default ' + s.def + ' · ' + s.min + '–' + s.max));
+    });
+    const pwMsg = h('div');
+    root.append(
+      h('div', { class: 'card' }, h('h2', null, 'Maintenance mode'),
+        h('p', { class: 'sub' }, 'While on, nobody new can join. Players already inside keep playing unless you kick them.'),
+        h('label', null, 'Message shown to visitors'), mText,
+        h('div', { class: 'row', style: { marginTop: '10px' } },
+          h('label', { class: 'switch', style: { margin: 0 } }, mKick, 'Also kick everyone now'),
+          h('span', { class: 'sp' }),
+          h('button', { class: 'btn ' + (m.on ? 'pri' : 'bad'), onclick: () => act('maintenance', { on: !m.on, message: $('mtMsg').value, kick: $('mtKick').checked }) }, m.on ? 'Turn maintenance OFF' : 'Turn maintenance ON'))),
+      h('div', { class: 'card', style: { marginTop: '12px' } }, h('h2', null, 'Live game settings'),
+        h('p', { class: 'sub' }, 'Applied immediately and kept across restarts (when the data folder is saved).'),
+        h('div', { class: 'tw' }, h('table', null, h('tbody', null, ...rows))),
+        h('div', { class: 'row', style: { marginTop: '10px' } },
+          h('button', { class: 'btn pri', onclick: async () => { const v = {}; for (const k in inputs) v[k] = Number(inputs[k].value); const r = await act('settings', { values: v }); if (r.status === 200) alert('Saved.'); } }, 'Save settings'),
+          h('button', { class: 'btn', onclick: async () => { if (confirm('Reset every setting above to its default?')) act('settings', { values: {}, reset: true }); } }, 'Reset to defaults'))),
+      h('div', { class: 'card', style: { marginTop: '12px' } }, h('h2', null, 'Change admin password'),
+        h('label', null, 'Current password'), h('input', { type: 'password', id: 'spCur', autocomplete: 'current-password' }),
+        h('label', null, 'New password (8+ characters)'), h('input', { type: 'password', id: 'spNew', autocomplete: 'new-password' }),
+        h('div', { class: 'row', style: { marginTop: '10px' } }, h('button', { class: 'btn pri', onclick: async () => {
+          clear(pwMsg);
+          const r = await api('password', { current: $('spCur').value, password: $('spNew').value });
+          pwMsg.append(r.status === 200 ? msg('ok', 'Password changed. Other signed-in sessions were signed out.') : msg('err', r.data.error || 'Could not change it.'));
+          if (r.status === 200) { $('spCur').value = ''; $('spNew').value = ''; }
+        } }, 'Change password')), pwMsg),
+      h('div', { class: 'card', style: { marginTop: '12px', borderColor: '#5a2a2a' } }, h('h2', null, 'Danger zone'),
+        h('div', { class: 'row' }, h('button', { class: 'btn bad', onclick: async () => { if (confirm('Remove every player from the game right now?')) { const r = await act('kick-all'); } } }, 'Kick everyone'),
+          h('span', { class: 'mute' }, 'Players can rejoin immediately unless maintenance mode is on.'))));
+  }
+
+  // ---------- go ----------
+  (async () => {
+    const r = await api('session');
+    if (r.status === 200) { if (r.data.mustChange) show('change'); else start(); } else show('login');
+  })();
+})();
+</script>
+</body>
+</html>

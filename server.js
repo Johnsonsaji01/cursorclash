@@ -11,6 +11,7 @@
  *   POST /api/leave       {id, token}
  *   GET  /healthz                                         -> "ok"
  *   GET  /                                                -> the game (public/index.html)
+ *   GET  /admin                                           -> admin portal (public/admin.html); API under /api/admin/*
  *
  * Everything is also served under the /cursorclash prefix, so both https://host/ and
  * https://host/cursorclash/ work (with or without a reverse proxy that strips the prefix).
@@ -23,6 +24,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Security, clientIp, ipKey } = require('./lib/security');
 const { Hub } = require('./lib/hub');
+const { Admin } = require('./lib/admin');
+const VERSION = require('./package.json').version;
 
 const PREFIX = '/cursorclash';
 
@@ -69,7 +72,10 @@ const DEFAULTS = {
   AFK_ATTACKS: 40, AFK_MIN_MOVE: 6,    // this many attacks with the cursor barely moving = auto-clicker
   STRIKES_TO_BAN: 3, STRIKE_WINDOW_SEC: 600, BAN_SEC: 600,
   TRUST_PROXY: true,                   // read the visitor's address from CF-Connecting-IP / X-Forwarded-For
-  SECRET: '', TURNSTILE_SITEKEY: '', TURNSTILE_SECRET: ''
+  SECRET: '', TURNSTILE_SITEKEY: '', TURNSTILE_SECRET: '',
+  // admin portal
+  ADMIN_INITIAL_PASSWORD: '2468',      // the first login; the portal then forces a new password
+  ADMIN_MAX_ATTEMPTS: 5, ADMIN_LOCK_SEC: 900
 };
 
 function envConfig(env) {
@@ -78,6 +84,9 @@ function envConfig(env) {
   if (env.SECRET || env.CC_SECRET) out.SECRET = env.SECRET || env.CC_SECRET;
   if (env.TURNSTILE_SITEKEY) out.TURNSTILE_SITEKEY = env.TURNSTILE_SITEKEY;
   if (env.TURNSTILE_SECRET) out.TURNSTILE_SECRET = env.TURNSTILE_SECRET;
+  if (env.ADMIN_MAX_ATTEMPTS && Number(env.ADMIN_MAX_ATTEMPTS) >= 1) out.ADMIN_MAX_ATTEMPTS = Number(env.ADMIN_MAX_ATTEMPTS);
+  if (env.ADMIN_LOCK_SEC && Number(env.ADMIN_LOCK_SEC) >= 1) out.ADMIN_LOCK_SEC = Number(env.ADMIN_LOCK_SEC);
+  if (env.ADMIN_INITIAL_PASSWORD) out.ADMIN_INITIAL_PASSWORD = env.ADMIN_INITIAL_PASSWORD;
   if (env.TRUST_PROXY !== undefined) out.TRUST_PROXY = bool(env.TRUST_PROXY);
   if (env.HUMAN_CHECK !== undefined) out.HUMAN_CHECK = bool(env.HUMAN_CHECK);
   for (const k of ['POW_BITS', 'MAX_PLAYERS_PER_IP', 'MAX_PLAYERS', 'PUBLIC_SPAWN_AT', 'PRIVATE_SOLO_SEC']) {
@@ -90,9 +99,12 @@ function start(opts = {}) {
   const C = Object.assign({}, DEFAULTS, opts.env === false ? {} : envConfig(process.env), opts.config || {});
   const indexPath = opts.indexPath || path.join(__dirname, 'public', 'index.html');
   const indexHtml = fs.readFileSync(indexPath);
+  const adminHtml = fs.readFileSync(opts.adminPath || path.join(__dirname, 'public', 'admin.html'));
 
   const sec = new Security(C, { turnstileVerify: opts.turnstileVerify });
   const hub = new Hub(C, sec);
+  const dataDir = opts.dataDir !== undefined ? opts.dataDir : (opts.env === false ? null : (process.env.DATA_DIR || path.join(__dirname, 'data')));
+  const admin = new Admin(hub, sec, C, { dataDir, version: VERSION, initialPassword: C.ADMIN_INITIAL_PASSWORD, maxAttempts: C.ADMIN_MAX_ATTEMPTS, lockSec: C.ADMIN_LOCK_SEC });
   const loop = setInterval(() => hub.tick(), 50);
   loop.unref && loop.unref();
 
@@ -106,22 +118,27 @@ function start(opts = {}) {
     "frame-src https://challenges.cloudflare.com; base-uri 'none'; form-action 'none'";
 
   // ---------- API ----------
-  const tooMany = () => [429, { error: 'Too many requests — slow down a little.' }];
+  const tooMany = ipk => { admin.addRate(ipk); return [429, { error: 'Too many requests — slow down a little.' }]; };
 
   async function api(route, body, req) {
     const ip = clientIp(req, C.TRUST_PROXY), ipk = ipKey(ip);
-    if (sec.banned(ipk)) return [403, { error: 'Too many automated-looking actions from your network. Try again in a few minutes.', reason: 'banned' }];
-    if (!sec.allow('ip:' + ipk, C.IP_BURST, C.IP_PER_SEC)) return tooMany();
+    if (sec.banned(ipk)) {
+      // a player who is already inside gets the same "gone" answer the page understands
+      if (route === 'sync' || route === 'leave') return [410, { error: 'Too many automated-looking actions from your network. Try again in a few minutes.', reason: 'banned' }];
+      return [403, { error: 'Too many automated-looking actions from your network. Try again in a few minutes.', reason: 'banned' }];
+    }
+    if (!sec.allow('ip:' + ipk, C.IP_BURST, C.IP_PER_SEC)) return tooMany(ipk);
 
     switch (route) {
       case 'challenge':
-        if (!sec.allow('ch:' + ipk, C.CHALLENGE_BURST, C.CHALLENGE_PER_SEC)) return tooMany();
+        if (!sec.allow('ch:' + ipk, C.CHALLENGE_BURST, C.CHALLENGE_PER_SEC)) return tooMany(ipk);
         return [200, sec.newChallenge(ipk)];
 
       case 'verify': {
-        if (!sec.allow('vf:' + ipk, C.VERIFY_BURST, C.VERIFY_PER_SEC)) return tooMany();
+        if (!sec.allow('vf:' + ipk, C.VERIFY_BURST, C.VERIFY_PER_SEC)) return tooMany(ipk);
         const bad = await sec.verify(body, ipk, ip);
         if (bad) return bad;
+        admin.add('verify-ok', 'Human check passed by ' + ip, { ip });
         return [200, { ticket: sec.issueTicket(ipk).ticket }];
       }
 
@@ -132,19 +149,25 @@ function start(opts = {}) {
         const t = sec.checkTicket(body && body.ticket, ipk);
         if (!t) return [401, { error: 'Please complete the quick human check first.', reason: 'verify' }];
         if (route === 'join') {
-          if (!sec.allow('jn:' + ipk, C.JOIN_BURST, C.JOIN_PER_SEC)) return tooMany();
+          if (!sec.allow('jn:' + ipk, C.JOIN_BURST, C.JOIN_PER_SEC)) return tooMany(ipk);
           return hub.join({ ip, ipk, tid: t.tid, tidExp: t.exp }, body);
         }
         if (route === 'worldinfo') {
-          if (!sec.allow('wi:' + ipk, C.INFO_BURST, C.INFO_PER_SEC)) return tooMany();
+          if (!sec.allow('wi:' + ipk, C.INFO_BURST, C.INFO_PER_SEC)) return tooMany(ipk);
           return hub.worldInfo(body.world);
         }
-        if (!sec.allow('np:' + ipk, C.NEWPRIVATE_BURST, C.NEWPRIVATE_PER_SEC)) return tooMany();
+        if (!sec.allow('np:' + ipk, C.NEWPRIVATE_BURST, C.NEWPRIVATE_PER_SEC)) return tooMany(ipk);
         const r = hub.createPrivate(ipk);
         return r.error || [200, { code: r.world.id }];
       }
       default: return [404, { error: 'not found' }];
     }
+  }
+
+  function adminApi(route, body, req) {
+    const ip = clientIp(req, C.TRUST_PROXY), ipk = ipKey(ip);
+    const secure = !!(req.socket && req.socket.encrypted) || /https/i.test(String(req.headers['x-forwarded-proto'] || '')) || /https/i.test(String(req.headers['cf-visitor'] || ''));
+    return admin.handle(route, body, req, { ip, ipk, secure });
   }
 
   // ---------- HTTP ----------
@@ -195,13 +218,35 @@ function start(opts = {}) {
       return res.end(req.method === 'HEAD' ? undefined : indexHtml);
     }
 
+    if (pathname === '/admin' || pathname === '/admin/' || pathname === '/admin.html') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'method not allowed');
+      res.writeHead(200, Object.assign({
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      }, SECURITY_HEADERS));
+      return res.end(req.method === 'HEAD' ? undefined : adminHtml);
+    }
+
+    const am = /^\/api\/admin\/([a-z-]{3,20})$/.exec(pathname);
+    if (am) {
+      if (req.method !== 'POST') return send(res, 405, 'method not allowed', { Allow: 'POST' });
+      return readBody(req, 16 * 1024, (err, body) => {
+        if (err) return send(res, 400, { error: 'bad request' });
+        let r;
+        try { r = adminApi(am[1], body, req); } catch (e) { r = [500, { error: 'server error' }]; }
+        send(res, r[0], r[1], r[2]);
+      });
+    }
+
     const m = /^\/api\/(challenge|verify|join|worldinfo|newprivate|sync|leave)$/.exec(pathname);
     if (m) {
       if (req.method !== 'POST') return send(res, 405, 'method not allowed', { Allow: 'POST' });
       return readBody(req, 64 * 1024, (err, body) => {
         if (err) return send(res, 400, { error: 'bad request' });
         Promise.resolve(api(m[1], body, req))
-          .then(([status, payload]) => send(res, status, payload, status === 429 ? { 'Retry-After': '2' } : undefined))
+          .then(([status, payload, hdrs]) => send(res, status, payload, hdrs || (status === 429 ? { 'Retry-After': '2' } : undefined)))
           .catch(() => send(res, 500, { error: 'server error' }));
       });
     }
@@ -216,12 +261,12 @@ function start(opts = {}) {
   return new Promise(resolve => {
     server.listen(port, opts.host || '0.0.0.0', () => {
       resolve({
-        server, hub, sec, config: C,
+        server, hub, sec, admin, config: C,
         port: server.address().port,
         // the first public world (what most tests poke at)
         get state() { const w = hub.worlds.get('w1'); return { players: w.players, strokes: w.strokes, events: w.events }; },
         tick: () => hub.tick(),
-        close: () => new Promise(r => { clearInterval(loop); server.closeAllConnections && server.closeAllConnections(); server.close(() => r()); })
+        close: () => new Promise(r => { clearInterval(loop); admin.close(); server.closeAllConnections && server.closeAllConnections(); server.close(() => r()); })
       });
     });
   });

@@ -7,8 +7,12 @@ COPY server.js ./
 COPY lib ./lib
 COPY public ./public
 
+# admin portal data (password, bans, settings, 24 h log) — mount a persistent volume here in Coolify
+RUN mkdir -p /app/data && chown node:node /app/data
+
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    DATA_DIR=/app/data
 
 EXPOSE 3000
 
