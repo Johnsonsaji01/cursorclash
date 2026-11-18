@@ -56,6 +56,7 @@
   .chip.on{background:var(--panel2);color:var(--text);border-color:var(--acc)}
   .tag{display:inline-block;min-width:92px;font-size:11px;padding:1px 7px;border-radius:6px;background:var(--panel2);color:var(--mute);text-align:center}
   .tag.t-kill{color:#ff9a9a}.tag.t-ban,.tag.t-admin-lock,.tag.t-strike,.tag.t-admin-fail,.tag.t-verify-fail,.tag.t-ratelimit,.tag.t-join-fail{color:var(--bad)}
+  .tag.t-shop,.tag.t-image,.tag.t-tnt{color:#d9b8ff}
   .tag.t-admin-login,.tag.t-admin-action,.tag.t-broadcast{color:var(--warn)}.tag.t-join,.tag.t-world-open,.tag.t-verify-ok{color:var(--ok)}.tag.t-private,.tag.t-portal{color:var(--acc)}
   .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
   .logbox{max-height:62vh;overflow:auto}
@@ -111,6 +112,7 @@
     <div id="pOverview"></div>
     <div id="pPlayers" class="hidden"></div>
     <div id="pWorlds" class="hidden"></div>
+    <div id="pShop" class="hidden"></div>
     <div id="pLogs" class="hidden"></div>
     <div id="pSecurity" class="hidden"></div>
     <div id="pSettings" class="hidden"></div>
@@ -220,7 +222,7 @@
   $('bLogout').addEventListener('click', async () => { await api('logout'); stopPolling(); show('login'); });
 
   // ---------- tabs ----------
-  const TABS = [['Overview', 'pOverview'], ['Players', 'pPlayers'], ['Worlds', 'pWorlds'], ['Logs', 'pLogs'], ['Security', 'pSecurity'], ['Settings', 'pSettings']];
+  const TABS = [['Overview', 'pOverview'], ['Players', 'pPlayers'], ['Worlds', 'pWorlds'], ['Shop', 'pShop'], ['Logs', 'pLogs'], ['Security', 'pSecurity'], ['Settings', 'pSettings']];
   let tab = 'pOverview';
   function buildTabs() {
     clear($('tabs'));
@@ -256,6 +258,7 @@
       if (tab === 'pOverview' && (force || Date.now() - statsAt > 30000)) { const s = await api('stats'); if (s.status === 200) { stats = s.data.samples; statsAt = Date.now(); } }
       renderHeader();
       if (tab === 'pLogs') await renderLogs(force);
+      else if ((tab === 'pShop' || tab === 'pSettings') && !force) { /* forms are only redrawn when opened, so half-typed values aren't lost */ }
       else if (!editing()) render();
     } finally { busy = false; }
   }
@@ -276,6 +279,7 @@
     if (tab === 'pOverview') renderOverview();
     else if (tab === 'pPlayers') renderPlayers();
     else if (tab === 'pWorlds') renderWorlds();
+    else if (tab === 'pShop') renderShop();
     else if (tab === 'pSecurity') renderSecurity();
     else if (tab === 'pSettings') renderSettings();
   }
@@ -317,7 +321,7 @@
     if (banner) root.append(h('div', { class: 'msg warn', style: { marginBottom: '12px' } }, banner));
     if (data.mustChangeDefault) root.append(h('div', { class: 'msg err', style: { marginBottom: '12px' } }, 'The admin password is still the default. Change it in Settings.'));
     root.append(h('div', { class: 'grid stats' },
-      stat(c.players, 'Players online'), stat(c.lobby, 'In the lobby'), stat(c.pub, 'In public worlds'), stat(c.priv, 'In private worlds'),
+      stat(c.players, 'Players online'), stat(c.lobby, 'In the menu'), stat(c.pub, 'In public worlds'), stat(c.priv, 'In private worlds'),
       stat(c.worlds.public + c.worlds.private, 'Worlds open'), stat(data.peak24h, 'Peak (24 h)'), stat(data.bans.length, 'Active bans'), stat(data.logSize, 'Log entries (24 h)')));
     const recent = h('div');
     root.append(h('div', { class: 'grid two', style: { marginTop: '12px' } },
@@ -348,12 +352,13 @@
     root.append(h('div', { class: 'card' },
       h('div', { class: 'row', style: { marginBottom: '8px' } }, h('h2', { style: { margin: 0 } }, 'Players (' + list.length + ')'), search),
       h('div', { class: 'tw' }, list.length ? h('table', null,
-        h('thead', null, h('tr', null, ...['Player', 'World', 'IP', 'Kills', 'Deaths', 'Online', ''].map(x => h('th', null, x)))),
+        h('thead', null, h('tr', null, ...['Player', 'World', 'IP', 'Coins', 'Kills', 'Deaths', 'Online', ''].map(x => h('th', null, x)))),
         h('tbody', null, ...list.map(p => h('tr', null,
           h('td', null, h('span', { class: 'dot', style: { background: p.color } }), p.name),
           h('td', null, p.worldName + (p.kind === 'private' ? ' (' + p.world + ')' : '')),
-          h('td', { class: 'mono' }, p.ip), h('td', null, p.kills), h('td', null, p.deaths), h('td', null, fmtDur(p.online)),
+          h('td', { class: 'mono' }, p.ip), h('td', null, p.kind === 'lobby' ? p.coins + ' (menu)' : p.coins), h('td', null, p.kills), h('td', null, p.deaths), h('td', null, fmtDur(p.online)),
           h('td', null, h('div', { class: 'row' },
+            h('button', { class: 'btn sm', onclick: () => { const n = prompt('Give ' + p.name + ' how many coins? (negative takes coins away)', '50'); if (n && Number(n)) act('give-coins', { id: p.id, amount: Number(n) }); } }, 'Coins'),
             h('button', { class: 'btn sm', onclick: () => { if (confirm('Kick ' + p.name + '? They can rejoin straight away.')) act('kick', { id: p.id }); } }, 'Kick'),
             h('button', { class: 'btn sm bad', onclick: () => { const m = prompt('Ban ' + p.name + ' (' + p.ip + ') for how many minutes?', '60'); if (m && Number(m) > 0) act('kick', { id: p.id, banMinutes: Number(m) }); } }, 'Ban')))))))
         : h('div', { class: 'empty' }, 'Nobody is online.'))));
@@ -372,14 +377,48 @@
           h('thead', null, h('tr', null, ...['World', 'Type', 'ID', 'Players', 'Note', ''].map(x => h('th', null, x)))),
           h('tbody', null, ...data.worlds.map(w => h('tr', null,
             h('td', null, w.name), h('td', null, w.kind), h('td', { class: 'mono' }, w.id), h('td', null, w.count + ' / ' + w.max),
-            h('td', null, w.soloFor != null ? 'alone for ' + fmtDur(w.soloFor) : w.creator ? 'made by ' + w.creator : ''),
+            h('td', null, [w.bots ? w.bots + ' bot' + (w.bots > 1 ? 's' : '') : '', w.soloFor != null ? 'alone for ' + fmtDur(w.soloFor) : w.creator ? 'made by ' + w.creator : '', w.coins ? w.coins + ' coin' + (w.coins > 1 ? 's' : '') + ' lying around' : ''].filter(Boolean).join(' · ')),
             h('td', null, (w.id === 'w1' || w.id === 'l1') ? '' : h('button', { class: 'btn sm bad', onclick: () => { if (confirm('Close ' + w.name + '? Everyone inside is sent back to the lobby.')) act('close-world', { id: w.id }); } }, 'Close')))))))),
       h('div', { class: 'card', style: { marginTop: '12px' } }, h('h2', null, 'Broadcast a message'),
         h('div', { class: 'row' }, sel, txt, h('button', { class: 'btn pri', onclick: async () => { const t = $('bcText').value.trim(); if (!t) return; const r = await act('broadcast', { world: $('bcWorld').value, message: t }); if (r.status === 200) $('bcText') && ($('bcText').value = ''); } }, 'Send'))));
   }
 
+  // ---------- shop ----------
+  function renderShop() {
+    const root = clear($('pShop')), sh = data.shop, vals = sh.values;
+    const inputs = {}, checks = {}, ecoIn = {};
+    const num = (cur, p, step) => h('input', { type: 'number', value: cur, min: p.min, max: p.max, step: step || (Number.isInteger(p.def) && Number.isInteger(p.min) ? 1 : 'any'), style: { maxWidth: '130px' } });
+    root.append(h('div', { class: 'msg warn', style: { margin: '0 0 12px' } }, 'Changes apply at once to every player (prices and item effects). Items already bought keep working with the new values. Press Save to apply.'));
+    for (const it of sh.items) {
+      const v = vals.items[it.id];
+      checks[it.id] = h('input', { type: 'checkbox', checked: v.enabled });
+      inputs[it.id] = {};
+      root.append(h('div', { class: 'card', style: { marginBottom: '12px' } },
+        h('div', { class: 'row' }, h('h2', { style: { margin: 0 } }, it.icon + ' ' + it.name), h('span', { class: 'sp' }), h('label', { class: 'switch', style: { margin: 0 } }, checks[it.id], 'For sale / usable')),
+        h('p', { class: 'sub', style: { margin: '6px 0 8px' } }, it.desc),
+        h('div', { class: 'tw' }, h('table', null, h('tbody', null, ...it.props.map(p => { const i = num(v[p.key], p); inputs[it.id][p.key] = i; return h('tr', null, h('td', { class: 'wrap' }, p.label), h('td', null, i), h('td', { class: 'mute' }, 'default ' + p.def + ' · ' + p.min + '–' + p.max)); }))))));
+    }
+    const ecoRows = sh.eco.map(p => { const i = num(vals.eco[p.key], p); ecoIn[p.key] = i; return h('tr', null, h('td', { class: 'wrap' }, p.label), h('td', null, i), h('td', { class: 'mute' }, 'default ' + p.def + ' · ' + p.min + '–' + p.max)); });
+    const hosts = h('textarea', { rows: 3, placeholder: 'one site per line, e.g. example.com' }, vals.blockedHosts.join('\n'));
+    root.append(
+      h('div', { class: 'card', style: { marginBottom: '12px' } }, h('h2', null, '🪙 Coins & money'), h('div', { class: 'tw' }, h('table', null, h('tbody', null, ...ecoRows)))),
+      h('div', { class: 'card', style: { marginBottom: '12px' } }, h('h2', null, 'Image paster — blocked sites'),
+        h('p', { class: 'sub', style: { margin: '0 0 8px' } }, 'Players\' picture links are downloaded and checked by the server (PNG/JPEG/GIF/WebP, max 1.5 MB). Every chosen link is written to the Logs tab (type “image”). Add sites here that must never be used, including their sub-domains.'), hosts,
+        h('div', { class: 'row', style: { marginTop: '10px' } }, h('span', { class: 'mute' }, sh.images.count + ' picture(s) stored · ' + Math.round(sh.images.bytes / 1024) + ' KB · ' + sh.profiles + ' player profile(s)'), h('span', { class: 'sp' }),
+          h('button', { class: 'btn bad', onclick: async () => { if (confirm('Delete every stored picture and remove all pictures currently on screen? Items that used them can\'t be used until re-bought.')) { const r = await act('purge-images'); if (r.status === 200) alert('Purged ' + r.data.purged + ' stored picture(s).'); } } }, 'Purge all pictures'))),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn pri', onclick: async () => {
+          const patch = { items: {}, eco: {}, blockedHosts: hosts.value.split(/\n/).map(x => x.trim()).filter(Boolean) };
+          for (const id in inputs) { patch.items[id] = { enabled: checks[id].checked }; for (const k in inputs[id]) patch.items[id][k] = Number(inputs[id][k].value); }
+          for (const k in ecoIn) patch.eco[k] = Number(ecoIn[k].value);
+          const r = await act('shop-save', { patch });
+          if (r.status === 200) alert('Shop saved.');
+        } }, 'Save shop'),
+        h('button', { class: 'btn', onclick: () => { if (confirm('Reset every shop item, price and the economy to the defaults?')) act('shop-reset'); } }, 'Reset to defaults')));
+  }
+
   // ---------- logs ----------
-  const LOG_TYPES = ['join', 'leave', 'kill', 'portal', 'world-open', 'world-close', 'private', 'verify-ok', 'verify-fail', 'join-fail', 'ratelimit', 'strike', 'ban', 'broadcast', 'admin-login', 'admin-fail', 'admin-lock', 'admin-action', 'system'];
+  const LOG_TYPES = ['join', 'leave', 'kill', 'portal', 'world-open', 'world-close', 'private', 'shop', 'image', 'tnt', 'verify-ok', 'verify-fail', 'join-fail', 'ratelimit', 'strike', 'ban', 'broadcast', 'admin-login', 'admin-fail', 'admin-lock', 'admin-action', 'system'];
   const lf = { types: new Set(), q: '', limit: 300, hours: 24 };
   let logData = null, logShell = false;
   function logTable(entries, compact) {

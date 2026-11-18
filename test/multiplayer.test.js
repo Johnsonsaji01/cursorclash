@@ -10,6 +10,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // Relaxed settings so game-logic tests aren't slowed or blocked by the anti-bot limits.
 // The security tests below switch the relevant limits back on.
 const TEST_CFG = {
+  BOT_COUNT: 0,
   RATE_LIMITS: false, MAX_PLAYERS_PER_IP: 1000, POW_BITS: 4, MIN_VERIFY_MS: 0,
   MAX_SPEED: 1e9, MOVE_BURST: 1e9, AFK_ATTACKS: 1e9
 };
@@ -93,7 +94,8 @@ test('defaults match the design (healing, drawing fade, block walls, worlds)', (
   assert.equal(DEFAULTS.BLOCK_LIFE, 5);
   assert.equal(DEFAULTS.MAX_PLAYERS, 30);
   assert.equal(DEFAULTS.PUBLIC_SPAWN_AT, 20);
-  assert.equal(DEFAULTS.PORTAL_DWELL, 5);
+  assert.equal(DEFAULTS.PORTAL_DWELL, 2.5);
+  assert.equal(DEFAULTS.BOT_COUNT, 5);
   assert.equal(DEFAULTS.PRIVATE_SOLO_SEC, 300);
 });
 
@@ -631,7 +633,7 @@ test('the lobby is peaceful: no attacks, no heals, no walls, but ink works', asy
     assert.equal(b.me().hp, 100);
     assert.ok(a.me().mana >= mana - 0.2);
     assert.ok(!b.events.some(e => e.e === 'atk'));
-    const lobby = g.hub.worlds.get('l1');
+    const lobby = g.hub.worlds.get(a.world.id);
     assert.equal(lobby.strokes.size, 1);                            // just the ink
     assert.equal([...lobby.strokes.values()][0].kind, 'ink');
   });
@@ -737,14 +739,24 @@ test('a new public world is generated when one goes over 20 players (and extras 
   });
 });
 
-test('lobbies are sharded: a full lobby opens another instance', async () => {
-  await withServer({ LOBBY_MAX: 2 }, async (g, base) => {
-    const cs = [new Client(base), new Client(base), new Client(base)];
-    for (const c of cs) assert.equal((await c.join('L', { world: 'lobby' })).status, 200);
-    assert.equal(g.hub.worlds.has('l2'), true);
-    assert.equal(g.hub.worlds.get('l1').count(), 2);
-    assert.equal(g.hub.worlds.get('l2').count(), 1);
-    assert.equal((await new Client(base).join('X', { world: 'l1' })).status, 404);   // lobby instances aren't addressable
+test('the lobby is a private menu room: everyone gets their own, nobody else is ever in it', async () => {
+  await withServer({}, async (g, base) => {
+    const a = new Client(base), b = new Client(base);
+    assert.equal((await a.join('A', { world: 'lobby' })).status, 200);
+    assert.equal((await b.join('B', { world: 'lobby' })).status, 200);
+    assert.notEqual(a.world.id, b.world.id);
+    assert.equal(a.players.size, 1); assert.equal(b.players.size, 1);
+    assert.equal(a.world.max, 1);
+    assert.equal(a.world.name, 'Menu');                                     // not called a world / lobby
+    await a.sync(100, 100); await b.sync(900, 500);
+    assert.equal(a.players.size, 1); assert.equal(b.players.size, 1);
+    assert.equal((await new Client(base).join('X', { world: a.world.id })).status, 404);   // can't be joined by id
+    assert.equal(g.hub.worlds.get(a.world.id).count(), 1);
+    // an abandoned menu room is cleaned up
+    await raw(base, '/api/leave', 'POST', { id: a.id, token: a.token });
+    g.hub.worlds.get(a.world.id).emptySince = g.hub.now() - 60;
+    g.hub.lifecycle(g.hub.now());
+    assert.equal(g.hub.worlds.has(a.world.id), false);
   });
 });
 

@@ -7,7 +7,8 @@ const path = require('node:path');
 const { start } = require('../server.js');
 const { powOk } = require('../lib/security.js');
 
-const TEST_CFG = { RATE_LIMITS: false, MAX_PLAYERS_PER_IP: 1000, POW_BITS: 4, MIN_VERIFY_MS: 0, MAX_SPEED: 1e9, MOVE_BURST: 1e9, AFK_ATTACKS: 1e9 };
+const TEST_CFG = {
+  BOT_COUNT: 0, RATE_LIMITS: false, MAX_PLAYERS_PER_IP: 1000, POW_BITS: 4, MIN_VERIFY_MS: 0, MAX_SPEED: 1e9, MOVE_BURST: 1e9, AFK_ATTACKS: 1e9 };
 
 async function withServer(config, fn, extra = {}) {
   const g = await start(Object.assign({ port: 0, host: '127.0.0.1', env: false, dataDir: null, config: Object.assign({}, TEST_CFG, config) }, extra));
@@ -224,7 +225,7 @@ test('overview lists worlds and players (with IPs); the log records joins, kills
     assert.equal(ov.counts.players, 1);
     assert.equal(ov.players[0].name, 'Alice'); assert.equal(ov.players[0].ip, '203.0.113.10'); assert.equal(ov.players[0].world, 'w1');
     assert.ok(ov.worlds.some(w => w.id === 'w1' && w.count === 1));
-    assert.ok(ov.worlds.some(w => w.kind === 'lobby'));
+    assert.ok(!ov.worlds.some(w => w.kind === 'lobby'), 'menu rooms are not worlds');
     assert.equal(ov.version, require('../package.json').version);
 
     const log = (await a.call('logs', {})).json;
@@ -346,7 +347,7 @@ test('automatic bans (3 strikes) show up in the security list and the log', asyn
   });
 });
 
-test('closing a world sends players to the lobby with "admin-closed"; World 1 and Lobby 1 are protected', async () => {
+test('closing a world sends players to the lobby with "admin-closed"; World 1 is protected', async () => {
   await withServer({}, async (g, base) => {
     const a = await new Admin(base).ready();
     const made = await a.call('create-world');
@@ -354,7 +355,6 @@ test('closing a world sends players to the lobby with "admin-closed"; World 1 an
     const p = await join(base, 'Zoe', { world: 'w2' });
     assert.equal(p.r.status, 200);
     assert.equal((await a.call('close-world', { id: 'w1' })).status, 400);
-    assert.equal((await a.call('close-world', { id: 'l1' })).status, 400);
     assert.equal((await a.call('close-world', { id: 'nope' })).status, 404);
     assert.equal((await a.call('close-world', { id: 'w2' })).status, 200);
     const s = await sync(base, p);

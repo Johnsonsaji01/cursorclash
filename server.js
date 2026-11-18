@@ -48,13 +48,15 @@ const DEFAULTS = {
   EVENT_KEEP: 8,                       // seconds of events kept for catching up
   // worlds
   MAX_PLAYERS: 30,                     // per public / private world
-  LOBBY_MAX: 30,                       // per lobby instance (more instances are created as needed)
+  LOBBY_MAX: 1,                        // the menu room is private to one player
   PUBLIC_SPAWN_AT: 20,                 // a public world going over this makes a new one
-  PUBLIC_EMPTY_SEC: 120, LOBBY_EMPTY_SEC: 60,
-  PORTAL_DWELL: 5, PORTAL_R: 62, LOBBY_SPAWN_Y: 285, LOBBY_PORTAL_MAX: 15,
+  PUBLIC_EMPTY_SEC: 120, LOBBY_EMPTY_SEC: 5,
+  PORTAL_DWELL: 2.5, PORTAL_R: 62, LOBBY_SPAWN_Y: 285, LOBBY_PORTAL_MAX: 15,
   PRIVATE_SOLO_SEC: 300,               // a private world with one player for this long is deleted
   PRIVATE_EMPTY_SEC: 60,
   MAX_PRIVATE_PER_IP: 3, MAX_PRIVATE_TOTAL: 200,
+  // bots in World 1, coins, explosions
+  BOT_COUNT: 5, COIN_R: 26, KB_TIME: 0.55, IMG_ALLOW_PRIVATE: false,
   // bot / macro protection
   HUMAN_CHECK: true,                   // false = proof-of-work only (for load-testing your own server)
   POW_BITS: 16, CHALLENGE_TTL: 600, MIN_VERIFY_MS: 1200, MIN_HOLD_MS: 900, MIN_MOVES: 3,
@@ -101,9 +103,9 @@ function start(opts = {}) {
   const indexHtml = fs.readFileSync(indexPath);
   const adminHtml = fs.readFileSync(opts.adminPath || path.join(__dirname, 'public', 'admin.html'));
 
-  const sec = new Security(C, { turnstileVerify: opts.turnstileVerify });
-  const hub = new Hub(C, sec);
   const dataDir = opts.dataDir !== undefined ? opts.dataDir : (opts.env === false ? null : (process.env.DATA_DIR || path.join(__dirname, 'data')));
+  const sec = new Security(C, { turnstileVerify: opts.turnstileVerify });
+  const hub = new Hub(C, sec, { dataDir });
   const admin = new Admin(hub, sec, C, { dataDir, version: VERSION, initialPassword: C.ADMIN_INITIAL_PASSWORD, maxAttempts: C.ADMIN_MAX_ATTEMPTS, lockSec: C.ADMIN_LOCK_SEC });
   const loop = setInterval(() => hub.tick(), 50);
   loop.unref && loop.unref();
@@ -143,6 +145,7 @@ function start(opts = {}) {
       }
 
       case 'sync': return hub.sync(body);
+      case 'shop': return hub.shopOp(body);
       case 'leave': return hub.leave(body);
 
       case 'join': case 'worldinfo': case 'newprivate': {
@@ -229,6 +232,18 @@ function start(opts = {}) {
       return res.end(req.method === 'HEAD' ? undefined : adminHtml);
     }
 
+    const im = /^\/img\/([0-9a-f]{64})$/.exec(pathname);
+    if (im) {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'method not allowed');
+      const rec = hub.images.get(im[1]);
+      if (!rec) return send(res, 404, 'not found');
+      res.writeHead(200, {
+        'Content-Type': rec.type, 'Content-Length': rec.buf.length, 'Cache-Control': 'public, max-age=86400, immutable',
+        'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Referrer-Policy': 'no-referrer'
+      });
+      return res.end(req.method === 'HEAD' ? undefined : rec.buf);
+    }
+
     const am = /^\/api\/admin\/([a-z-]{3,20})$/.exec(pathname);
     if (am) {
       if (req.method !== 'POST') return send(res, 405, 'method not allowed', { Allow: 'POST' });
@@ -240,7 +255,7 @@ function start(opts = {}) {
       });
     }
 
-    const m = /^\/api\/(challenge|verify|join|worldinfo|newprivate|sync|leave)$/.exec(pathname);
+    const m = /^\/api\/(challenge|verify|join|worldinfo|newprivate|sync|leave|shop)$/.exec(pathname);
     if (m) {
       if (req.method !== 'POST') return send(res, 405, 'method not allowed', { Allow: 'POST' });
       return readBody(req, 64 * 1024, (err, body) => {

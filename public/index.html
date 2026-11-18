@@ -69,12 +69,50 @@
   #touch button { padding: 12px 16px; font-size: 15px; font-weight: 700; border-radius: 12px; border: 1px solid #30363d;
     background: rgba(22, 27, 34, .9); color: #e6edf3; }
   #touch button.on { background: #ffd84d; color: #1b1500; border-color: #ffd84d; }
+
+  /* ---- v2.3: coins, hotbar, panels ---- */
+  #coinBadge { color: #ffd84d; font-weight: 700; }
+  #hotbar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); display: none; gap: 6px; z-index: 4; padding: 6px;
+    border-radius: 14px; background: rgba(22, 27, 34, .88); border: 1px solid #30363d; }
+  body.playing #hotbar { display: flex; }
+  body.coarse #touch { bottom: 86px; }
+  .slot { position: relative; width: min(52px, 9.2vw); height: min(52px, 9.2vw); border-radius: 10px; border: 2px solid #30363d; background: #0d1117;
+    color: #e6edf3; cursor: pointer; padding: 0; font-size: 22px; line-height: 1; font-family: inherit; }
+  .slot:hover { border-color: #8b949e; }
+  .slot.sel { border-color: #ffd84d; box-shadow: 0 0 0 2px rgba(255, 216, 77, .35); }
+  .slot.empty { opacity: .55; }
+  .slot.pick { outline: 2px dashed #4aa8ff; outline-offset: 1px; }
+  .slot .n { position: absolute; top: 2px; left: 5px; font-size: 10px; color: #8b949e; font-weight: 700; }
+  .slot .l { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 8.5px; color: #8b949e; font-weight: 600; }
+  .slot.bag { width: 40px; font-size: 19px; }
+  .card.wide { width: min(640px, 94vw); }
+  .row2 { display: flex; align-items: center; gap: 10px; }
+  .row2 .sp { flex: 1; }
+  .lbl { margin: 12px 0 6px; font-size: 12px; color: #8b949e; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+  .grid9 { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+  .grid9 .slot { width: 100%; height: auto; aspect-ratio: 1; }
+  .swg { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 14px 0 6px; }
+  #cuPrev { position: static; width: 140px; height: 96px; display: block; margin: 0 auto 12px; background: #0d1117; border-radius: 12px; border: 1px solid #30363d; }
+  .shopRow { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid #30363d; }
+  .shopRow .ic { font-size: 34px; width: 46px; text-align: center; }
+  .shopRow .tx { flex: 1; min-width: 0; }
+  .shopRow .tx b { font-size: 15px; }
+  .shopRow .tx div { color: #8b949e; font-size: 12.5px; line-height: 1.4; }
+  .shopRow .tx .stat { color: #c9d1d9; }
+  .buy { padding: 9px 14px; border-radius: 10px; border: 0; background: #ffd84d; color: #1b1500; font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 14px; }
+  .buy:disabled { opacity: .45; cursor: not-allowed; }
+  .linkRow { display: flex; gap: 8px; margin-top: 8px; }
+  .linkRow input { flex: 1; min-width: 0; font-size: 13px !important; padding: 9px 10px !important; }
+  .msgline { min-height: 18px; margin-top: 10px; font-size: 13px; }
+  .msgline.err { color: #ff7b72; } .msgline.ok { color: #7ee787; }
+  .station-tip { }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
-<div id="bar" class="hidden"><span id="worldName"></span><button id="inviteBtn" class="hidden" type="button">Copy invite link</button><button id="lobbyBtn" type="button">Lobby</button></div>
+<div id="bar" class="hidden"><span id="coinBadge" title="Your coins">🪙 <span id="coinN">0</span></span><span id="worldName"></span><button id="inviteBtn" class="hidden" type="button">Copy invite link</button><button id="lobbyBtn" type="button">Menu</button></div>
+<div id="hotbar" aria-label="Hotbar"></div>
 <div id="toast"></div>
 <div id="banner">Reconnecting…</div>
 
@@ -92,7 +130,8 @@
     <div class="keys">
       <b>Click</b> / <b>Space</b> attack &nbsp;·&nbsp; <b>H</b> / right-click heal<br>
       <b>D</b> ink (cosmetic) &nbsp;·&nbsp; <b>B</b> block wall (costs mana, lasts 5 s)<br>
-      <b>1–4</b> freehand, line, box, circle &nbsp;·&nbsp; <b>Esc</b> stop drawing
+      <b>Q</b> cycle shape &nbsp;·&nbsp; <b>1–9</b> hotbar &nbsp;·&nbsp; <b>E</b> inventory &nbsp;·&nbsp; <b>Esc</b> fist<br>
+      Collect 🪙 coins in the worlds and spend them in the menu's shop.
     </div>
   </form>
 </div>
@@ -106,7 +145,41 @@
     <div id="pkChosen"></div>
     <div id="pkErr" style="min-height:18px;margin-top:6px;font-size:13px;color:#ff7b72"></div>
     <button class="btn" id="pkGo" type="button" disabled>Join</button>
-    <button class="btn ghost" id="pkBack" type="button">Back to lobby</button>
+    <button class="btn ghost" id="pkBack" type="button">Back to menu</button>
+  </div>
+</div>
+
+
+<div id="custom" class="overlay hidden">
+  <div class="card">
+    <h2>Your look</h2>
+    <p>Free, any time. Your name and colour come with you into every world (if someone there already wears your colour you'll pick another).</p>
+    <canvas id="cuPrev" width="280" height="192"></canvas>
+    <input type="text" id="cuName" maxlength="16" placeholder="Your name" spellcheck="false" aria-label="Your name">
+    <div class="swg" id="cuSw" role="group" aria-label="Colours"></div>
+    <div id="cuChosen" style="font-size:13px;color:#8b949e;min-height:18px"></div>
+    <button class="btn" id="cuDone" type="button">Done</button>
+  </div>
+</div>
+
+<div id="shop" class="overlay hidden">
+  <div class="card wide">
+    <div class="row2"><h2>🛒 Shop</h2><span class="sp"></span><b id="shCoins" style="color:#ffd84d;font-size:18px">🪙 0</b></div>
+    <p>Pick up the gold coins that appear in the worlds, then spend them here. Bought items go into your inventory — arrange them on your hotbar with <b>E</b>. Each item is used up when you use it.</p>
+    <div id="shList"></div>
+    <div id="shMsg" class="msgline"></div>
+    <button class="btn ghost" id="shClose" type="button">Close</button>
+  </div>
+</div>
+
+<div id="invPanel" class="overlay hidden">
+  <div class="card wide">
+    <div class="row2"><h2>🎒 Inventory &amp; hotbar</h2></div>
+    <p>Click an item, then click the slot to put it in. Slots 1–3 start with your tools (✊ fist, ✏️ ink, 🧱 blocks) — you can reorder them, but they always stay on the hotbar. Shop items go into slots 4–9 or wait here. Press <b>1–9</b> to pick a slot.</p>
+    <div class="lbl">Hotbar</div><div id="ivHot" class="grid9"></div>
+    <div class="lbl">Inventory</div><div id="ivGrid" class="grid9"></div>
+    <div id="ivMsg" class="msgline"></div>
+    <button class="btn" id="ivClose" type="button">Close</button>
   </div>
 </div>
 
@@ -128,7 +201,7 @@
   let W = 0, H = 0, DPR = 1, sx = 1, sy = 1, cs = 0.58;
   let cfg = { W: 1600, H: 900, MAX_HP: 100, MAX_MANA: 100, ATTACK_COST: 5, ATTACK_RADIUS: 52, ATTACK_CD: 0.32,
     HEAL_COST: 25, HEAL_CD: 4.5, HEAL_AMOUNT: 35, DRAW_FADE: 3.5, MAX_STROKE_POINTS: 400, MAX_POINTS_PER_ACTION: 60, MAX_ACTIONS: 24,
-    BLOCK_LIFE: 5, BLOCK_COST_PER_UNIT: 0.05, BLOCK_MIN_LEN: 8, CIRCLE_SEGMENTS: 40, PORTAL_R: 62, PORTAL_DWELL: 5, PRIVATE_SOLO_SEC: 300, PALETTE: [] };
+    BLOCK_LIFE: 5, BLOCK_COST_PER_UNIT: 0.05, BLOCK_MIN_LEN: 8, CIRCLE_SEGMENTS: 40, PORTAL_R: 62, PORTAL_DWELL: 2.5, PRIVATE_SOLO_SEC: 300, COIN_R: 26, KB_TIME: 0.55, HOTBAR: 9, INV_MAX: 27, PALETTE: [] };
 
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -237,6 +310,12 @@
   let running = false, failures = 0, rtt = 0, lastSyncStart = 0, wakeFn = null;
   let hurt = 0, manaFlash = 0;
   let banner = '';
+  // v2.3
+  const coins = new Map(), tnts = new Map(), imgs = new Map(), imgCache = new Map();
+  let cv2 = 0, svSeen = null, kbNow = 0;                       // coin version, shop version, knockback seconds left
+  let inv = { coins: 0, ver: 0, hotbar: ['fist', 'draw', 'block', null, null, null, null, null, null], items: [], invMax: 27 };
+  let catalog = [];
+  let selSlot = 0, imgDrag = null;
 
   const SHAPES = ['free', 'line', 'rect', 'circle'];
   const SHAPE_NAMES = { free: 'Freehand', line: 'Line', rect: 'Box', circle: 'Circle' };
@@ -297,6 +376,7 @@
   function resetWorld() {
     roster.clear(); players.clear(); strokes.clear();
     rings.length = 0; floaters.length = 0; portals = []; solo = null;
+    coins.clear(); tnts.clear(); imgs.clear(); cv2 = 0; kbNow = 0; imgDrag = null;
     actions = []; myStroke = null; seq = 0; rv = 0; pv = 0; pathBuf = []; wallSegs = []; wallsDirty = true; pen = 'off';
   }
 
@@ -304,7 +384,7 @@
     seq = d.seq;
     if (d.roster) {
       roster.clear();
-      for (const r of d.roster) roster.set(r[0], { id: r[0], name: r[1], color: r[2], kills: r[3], deaths: r[4] });
+      for (const r of d.roster) roster.set(r[0], { id: r[0], name: r[1], color: r[2], kills: r[3], deaths: r[4], bot: !!r[5] });
       rv = d.rv;
     }
     if (d.portals) {
@@ -313,6 +393,16 @@
     }
     if (d.n !== undefined && world) { if (world.count !== d.n) { world.count = d.n; updateBar(); } }
     solo = d.solo !== undefined ? d.solo : null;
+    if (d.coins) {
+      coins.clear();
+      for (const c of d.coins) coins.set(c[0], { id: c[0], x: c[1], y: c[2], v: c[3], exp: nowMs() + c[4] * 1000 });
+      cv2 = d.cv;
+    }
+    if (d.full) {
+      tnts.clear(); imgs.clear();
+      for (const b of d.tnts || []) tnts.set(b.id, { id: b.id, x: b.x, y: b.y, fuse: b.fuse, r: b.r, boom: nowMs() + b.rem * 1000 });
+      for (const m of d.imgs || []) addImage(m, m.rem);
+    }
     if (d.full && d.strokes) {
       for (const [k, s] of [...strokes]) if (s.owner !== me.id) { strokes.delete(k); if (s.kind === 'block') wallsDirty = true; }
       for (const s of d.strokes) {
@@ -331,7 +421,13 @@
       o.x = p[1]; o.y = p[2]; o.hp = p[3]; o.mana = p[4]; o.dead = !!p[5]; o.shield = !!p[6];
     }
     for (const id of [...players.keys()]) if (!seen.has(id)) players.delete(id);
-    if (d.you) you = { ac: d.you.ac, hc: d.you.hc, rs: d.you.rs, pt: d.you.pt || null, rcv: nowMs() };
+    if (d.you) {
+      you = { ac: d.you.ac, hc: d.you.hc, rs: d.you.rs, pt: d.you.pt || null, rcv: nowMs(), gh: d.you.gh || 0 };
+      kbNow = d.you.kb || 0;
+      if (d.you.c !== undefined && d.you.c !== inv.coins) { inv.coins = d.you.c; updateCoinBadge(); renderShop(); }
+      if (d.you.pv !== undefined && d.you.pv !== inv.ver) refreshInv();          // inventory changed (bought / used up)
+    }
+    if (d.sv !== undefined) { if (svSeen !== null && d.sv !== svSeen) refreshInv(); svSeen = d.sv; }
     for (const ev of d.events || []) applyEvent(ev, d.t);
   }
 
@@ -353,6 +449,20 @@
         rings.push({ x: ev.x, y: ev.y, r: 8, max: 70, t: nowMs(), life: 500, color: colorOf(ev.victim), kind: 'atk' });
         addFeed(ev.kn + ' clashed ' + ev.vn, colorOf(ev.killer));
         break;
+      case 'coin':
+        floaters.push({ x: ev.x, y: ev.y - 12, text: '+' + ev.v + ' 🪙', color: '#ffd84d', t: nowMs() });
+        rings.push({ x: ev.x, y: ev.y, r: 4, max: 30, t: nowMs(), life: 450, color: '#ffd84d', kind: 'heal' });
+        break;
+      case 'tnt':
+        tnts.set(ev.id, { id: ev.id, x: ev.x, y: ev.y, fuse: ev.fuse, r: ev.r, boom: nowMs() + ev.fuse * 1000 });
+        break;
+      case 'boom': {
+        const b = tnts.get(ev.id); tnts.delete(ev.id);
+        rings.push({ x: ev.x, y: ev.y, r: 10, max: ev.r, t: nowMs(), life: 520, color: '#ff9b3d', kind: 'atk' });
+        rings.push({ x: ev.x, y: ev.y, r: 4, max: ev.r * 0.6, t: nowMs(), life: 360, color: '#ffe08a', kind: 'heal' });
+        break;
+      }
+      case 'img': addImage(ev, ev.life); break;
       case 'msg': addFeed('📢 ' + ev.n, '#ffd166'); notify('📢 ' + ev.n, 9000); break;   // sent by the admin
       case 'join': addFeed(ev.n + ' joined', '#8b949e'); break;
       case 'leave': addFeed(ev.n + ' left', '#8b949e'); break;
@@ -407,7 +517,7 @@
     lastSyncStart = t0;
     const { status, data } = await post('sync', {
       id: me.id, token: me.token, x: px, y: py, pp: pathBuf.slice(-12),
-      a: sending, since: seq, rv, pv
+      a: sending, since: seq, rv, pv, cv: cv2
     });
     if (myGen !== gen) return;              // I moved on (changed world) while this was in flight
     if (status === 410) { await handleGone(data && data.reason, data && data.error); return; }
@@ -420,7 +530,7 @@
     applyState(data);
     // If the server stopped me somewhere other than where I put myself (a wall I didn't know about yet), trust it.
     const m = players.get(me.id);
-    if (m && !m.dead && Math.hypot(m.x - px, m.y - py) > 3) { cur.x = m.x; cur.y = m.y; pathBuf = []; }
+    if (m && !m.dead && kbNow <= 0 && Math.hypot(m.x - px, m.y - py) > 3) { cur.x = m.x; cur.y = m.y; pathBuf = []; }
     if (data.go) onGo(data.go);
   }
 
@@ -447,7 +557,12 @@
     world = d.world;
     cfg = Object.assign(cfg, d.cfg);
     resize();
+    if (d.inv) inv = d.inv;
+    if (d.catalog) catalog = d.catalog;
+    svSeen = d.sv !== undefined ? d.sv : null;
+    selSlot = fistIdx(); pen = 'off';
     applyState(d);
+    renderHotbar(); updateCoinBadge();
     const mp = players.get(me.id);
     if (mp) { cur.x = mp.x; cur.y = mp.y; }
     $('menu').classList.add('hidden'); $('picker').classList.add('hidden');
@@ -461,7 +576,8 @@
   async function leaveWorld() {
     const m = me;
     running = false; gen++; me = null;
-    pathBuf = []; actions = []; myStroke = null; pen = 'off';
+    pathBuf = []; actions = []; myStroke = null; pen = 'off'; imgDrag = null;
+    closeModals(true);
     document.body.classList.remove('playing');
     $('bar').classList.add('hidden');
     if (m) { try { await post('leave', { id: m.id, token: m.token }, 2500); } catch (e) { /* ignore */ } }
@@ -469,8 +585,8 @@
 
   // result: {ok} | {handled:true} | {status, data}
   async function joinWorld(worldId, color) {
-    const r = await post('join', { ticket, name: playerName, world: worldId, color });
-    if (r.status === 200) { startPlaying(r.data); return { ok: true }; }
+    const r = await post('join', { ticket, name: playerName, world: worldId, color, profile: load('cc_profile') || undefined });
+    if (r.status === 200) { if (r.data.profile) store('cc_profile', r.data.profile); startPlaying(r.data); return { ok: true }; }
     if (r.status === 401) { needCheck('Quick check needed — hold the button to continue.'); return { handled: true }; }
     return { status: r.status, data: r.data || {} };
   }
@@ -479,7 +595,7 @@
 
   async function enterLobby() {
     const r = await joinWorld('lobby', preferredColor());
-    if (!r.ok && !r.handled) showMenu((r.data && r.data.error) || 'Could not reach the lobby — is the server up?');
+    if (!r.ok && !r.handled) showMenu((r.data && r.data.error) || 'Could not reach the game — is the server up?');
   }
 
   async function goLobby(note) {
@@ -518,14 +634,14 @@
       if (reason === 'verify') needCheck('Quick check — hold the button to continue.');
       else if (reason === 'banned') { ticket = null; saveTicket(); showMenu(message || 'Too many automated-looking actions. Try again in a few minutes.'); }
       else if (reason === 'closed') await goLobbyAfterClose('That private world closed — you were alone in it for too long.');
-      else if (reason === 'admin-closed') await goLobbyAfterClose('An admin closed that world — you\'re back in the lobby.');
+      else if (reason === 'admin-closed') await goLobbyAfterClose('An admin closed that world — you\'re back in the menu.');
       else if (reason === 'kicked') { inviteCode = null; await enterLobby(); notify('You were removed from the game by an admin.', 7000); }
       else {                                  // dropped (tab was asleep, network blip): try to slip back in
         banner = '';
         if (prev && prev.kind !== 'lobby') {
           const r = await joinWorld(prev.id, prevColor);
           if (r.ok || r.handled) return;
-          await goLobbyAfterClose('Couldn\'t rejoin that world — back in the lobby.');
+          await goLobbyAfterClose('Couldn\'t rejoin that world — back in the menu.');
         } else await enterLobby();
       }
     } finally { transitioning = false; }
@@ -779,12 +895,329 @@
     else window.prompt('Copy this link:', text);
   }
 
+  // ---------- v2.3: hotbar, inventory, shop, customiser, items ----------
+  const TOOL_INFO = { fist: ['✊', 'Fist'], draw: ['✏️', 'Ink'], block: ['🧱', 'Blocks'] };
+  const STATIONS = [
+    { id: 'custom', x: 200, y: 160, icon: '🎨', label: 'Customise', sub: 'name & colour', color: '#ff7ad9' },
+    { id: 'shop', x: 440, y: 160, icon: '🛒', label: 'Shop', sub: 'spend coins', color: '#ffd84d' }
+  ];
+  const STATION_R = 72;
+  const catItem = id => catalog.find(c => c.id === id);
+  const fistIdx = () => Math.max(0, inv.hotbar.indexOf('fist'));
+  const modalOpen = () => ['custom', 'shop', 'invPanel', 'picker'].some(id => !$(id).classList.contains('hidden'));
+
+  function slotInfo(s) {
+    if (s === null || s === undefined) return null;
+    if (typeof s === 'string') return TOOL_INFO[s] ? { icon: TOOL_INFO[s][0], name: TOOL_INFO[s][1], tool: s } : null;
+    const rec = inv.items.find(i => i.u === s);
+    if (!rec) return null;
+    const c = catItem(rec.t);
+    return { icon: c ? c.icon : '❔', name: c ? c.name : rec.t, rec };
+  }
+  const heldSlot = () => inv.hotbar[selSlot];
+  function heldTool() { const s = heldSlot(); return typeof s === 'string' ? s : null; }
+  function heldItem() { const s = heldSlot(); return typeof s === 'number' ? inv.items.find(i => i.u === s) || null : null; }
+
+  function slotButton(info, label, cls, onclick) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'slot' + (info ? '' : ' empty') + (cls ? ' ' + cls : '');
+    if (label) { const n = document.createElement('span'); n.className = 'n'; n.textContent = label; b.append(n); }
+    if (info) {
+      b.append(document.createTextNode(info.icon));
+      const l = document.createElement('span'); l.className = 'l'; l.textContent = info.name; b.append(l);
+      b.title = info.name + (info.rec && info.rec.url ? ' — ' + info.rec.url : '');
+    }
+    b.addEventListener('click', onclick);
+    return b;
+  }
+
+  function renderHotbar() {
+    const box = $('hotbar');
+    while (box.firstChild) box.removeChild(box.firstChild);
+    inv.hotbar.forEach((s, i) => box.append(slotButton(slotInfo(s), String(i + 1), i === selSlot ? 'sel' : '', () => selectSlot(i))));
+    const bag = document.createElement('button');
+    bag.type = 'button'; bag.className = 'slot bag'; bag.textContent = '🎒'; bag.title = 'Inventory (E)';
+    bag.addEventListener('click', openInv);
+    box.append(bag);
+  }
+
+  function selectSlot(i) {
+    if (!me) return;
+    i = clamp(i | 0, 0, inv.hotbar.length - 1);
+    if (myStroke) endStroke();
+    imgDrag = null;
+    selSlot = i;
+    const s = inv.hotbar[i];
+    pen = s === 'draw' ? 'ink' : s === 'block' ? 'block' : 'off';
+    if (pen === 'block' && inLobby()) { pen = 'off'; notify('Walls only work inside a world.', 2500); }
+    const rec = heldItem();
+    if (rec && inLobby()) notify('Items are used inside a world.', 2500);
+    renderHotbar(); syncTouchButtons();
+  }
+  function toggleTool(tool) { selectSlot(heldTool() === tool ? fistIdx() : Math.max(0, inv.hotbar.indexOf(tool))); }
+
+  // ----- inventory data -----
+  let invBusy = false;
+  function updateCoinBadge() { $('coinN').textContent = inv.coins; $('shCoins').textContent = '🪙 ' + inv.coins; }
+  function applyInv(d) {
+    const heldU = typeof heldSlot() === 'number' ? heldSlot() : null;
+    if (d.inv && Array.isArray(d.inv.hotbar)) inv = d.inv;
+    if (d.catalog) catalog = d.catalog;
+    if (heldU !== null && !inv.items.some(i => i.u === heldU)) { selSlot = fistIdx(); pen = 'off'; imgDrag = null; syncTouchButtons(); }   // used up
+    renderHotbar(); renderInv(); renderShop(); updateCoinBadge();
+  }
+  async function refreshInv() {
+    if (!me || invBusy) return;
+    invBusy = true;
+    try { const r = await post('shop', { id: me.id, token: me.token, op: 'catalog' }); if (r.status === 200 && r.data) applyInv(r.data); } catch (e) { /* the next sync will retry */ }
+    finally { invBusy = false; }
+  }
+  let saveT = 0;
+  function saveHotbar() {
+    clearTimeout(saveT);
+    saveT = setTimeout(async () => {
+      if (!me) return;
+      try {
+        const r = await post('shop', { id: me.id, token: me.token, op: 'hotbar', hotbar: inv.hotbar });
+        if (r.data && r.data.inv) applyInv(r.data);
+        if (r.status === 400 && r.data) setMsg($('ivMsg'), r.data.error, 'err');
+      } catch (e) { /* ignore */ }
+    }, 150);
+  }
+  function setMsg(el, text, cls) { el.textContent = text || ''; el.className = 'msgline' + (cls ? ' ' + cls : ''); }
+
+  // ----- inventory panel -----
+  let ivPick = null;
+  const loose = () => { const on = new Set(inv.hotbar.filter(x => typeof x === 'number')); return inv.items.filter(i => !on.has(i.u)); };
+  function openInv() { if (!me) return; closeModals(true); $('invPanel').classList.remove('hidden'); ivPick = null; setMsg($('ivMsg'), ''); renderInv(); }
+  function renderInv() {
+    if ($('invPanel').classList.contains('hidden')) return;
+    const hot = $('ivHot'), grid = $('ivGrid');
+    while (hot.firstChild) hot.removeChild(hot.firstChild);
+    while (grid.firstChild) grid.removeChild(grid.firstChild);
+    inv.hotbar.forEach((s, i) => hot.append(slotButton(slotInfo(s), String(i + 1), ivPick && ivPick.from === 'hot' && ivPick.i === i ? 'pick' : '', () => ivClick('hot', i))));
+    const lo = loose();
+    const n = Math.max(inv.invMax || 27, Math.ceil(lo.length / 9) * 9);
+    for (let i = 0; i < n; i++) grid.append(slotButton(lo[i] ? slotInfo(lo[i].u) : null, '', ivPick && ivPick.from === 'inv' && ivPick.i === i ? 'pick' : '', () => ivClick('inv', i)));
+  }
+  function ivClick(from, i) {
+    const msg = $('ivMsg'); setMsg(msg, '');
+    const lo = loose();
+    const content = from === 'hot' ? inv.hotbar[i] : (lo[i] ? lo[i].u : null);
+    if (!ivPick) { if (content === null || content === undefined) return; ivPick = { from, i, content }; renderInv(); return; }
+    const src = ivPick; ivPick = null;
+    if (src.from === from && src.i === i) { renderInv(); return; }
+    const hb = inv.hotbar.slice();
+    if (src.from === 'hot' && from === 'hot') { [hb[src.i], hb[i]] = [hb[i], hb[src.i]]; }
+    else if (src.from === 'hot' && from === 'inv') {
+      if (typeof src.content === 'string') { setMsg(msg, 'Tools always stay on the hotbar — swap it with another hotbar slot instead.', 'err'); renderInv(); return; }
+      hb[src.i] = null;                                       // the item simply becomes "loose" in the inventory
+    } else if (src.from === 'inv' && from === 'hot') {
+      if (typeof hb[i] === 'string') { setMsg(msg, 'That slot holds a tool. Move the tool to another slot first.', 'err'); renderInv(); return; }
+      hb[i] = src.content;                                    // whatever was there goes back to the inventory
+    }
+    inv.hotbar = hb;
+    if (selSlot < hb.length) selectSlotQuiet();
+    saveHotbar(); renderHotbar(); renderInv();
+  }
+  function selectSlotQuiet() { const s = inv.hotbar[selSlot]; pen = s === 'draw' ? 'ink' : s === 'block' && !inLobby() ? 'block' : 'off'; syncTouchButtons(); }
+  $('ivClose').addEventListener('click', () => closeModals());
+  $('shClose').addEventListener('click', () => closeModals());
+  $('cuDone').addEventListener('click', () => closeModals());
+
+  function closeModals(quiet) {
+    if (!$('custom').classList.contains('hidden')) { applyName(); $('custom').classList.add('hidden'); }
+    $('shop').classList.add('hidden'); $('invPanel').classList.add('hidden');
+    ivPick = null; shBuying = null;
+    if (!quiet) kick();
+  }
+
+  // ----- shop -----
+  let shBuying = null;
+  function itemStats(c) {
+    const p = c.props;
+    if (c.id === 'invis') return 'Invisible to other players for ' + p.duration + ' s';
+    if (c.id === 'tnt') return p.fuse + ' s fuse · ' + p.radius + ' blast radius · ' + p.damage + ' damage · shoves everyone but you';
+    if (c.id === 'image') return 'Shown for ' + p.life + ' s · ' + p.manaPer1000 + ' mana per 1000 sq. units · width ' + p.minSize + '–' + p.maxSize;
+    return '';
+  }
+  function openShop() { if (!me) return; closeModals(true); $('shop').classList.remove('hidden'); shBuying = null; setMsg($('shMsg'), ''); renderShop(); refreshInv(); }
+  function renderShop() {
+    if ($('shop').classList.contains('hidden')) return;
+    const list = $('shList');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    for (const c of catalog) {
+      const row = document.createElement('div'); row.className = 'shopRow';
+      const ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = c.icon;
+      const tx = document.createElement('div'); tx.className = 'tx';
+      const nm = document.createElement('b'); nm.textContent = c.name;
+      const ds = document.createElement('div'); ds.textContent = c.desc;
+      const st = document.createElement('div'); st.className = 'stat'; st.textContent = itemStats(c);
+      tx.append(nm, ds, st);
+      if (shBuying === c.id) {
+        const lr = document.createElement('div'); lr.className = 'linkRow';
+        const inp = document.createElement('input'); inp.type = 'text'; inp.id = 'shLink'; inp.placeholder = 'Paste the link of your picture (png, jpg, gif, webp)'; inp.maxLength = 500; inp.autocomplete = 'off';
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'buy'; ok.textContent = 'Confirm';
+        const no = document.createElement('button'); no.type = 'button'; no.className = 'btn ghost'; no.textContent = 'Cancel';
+        ok.addEventListener('click', () => buyItem(c, inp.value));
+        no.addEventListener('click', () => { shBuying = null; renderShop(); });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') buyItem(c, inp.value); });
+        lr.append(inp, ok, no); tx.append(lr);
+        setTimeout(() => inp.focus(), 0);
+      }
+      const buy = document.createElement('button'); buy.type = 'button'; buy.className = 'buy';
+      buy.textContent = c.enabled ? 'Buy · 🪙 ' + c.price : 'Not for sale';
+      buy.disabled = !c.enabled || inv.coins < c.price;
+      if (c.enabled && inv.coins < c.price) buy.title = 'You need ' + (c.price - inv.coins) + ' more coins';
+      buy.addEventListener('click', () => { if (c.needsLink) { shBuying = c.id; setMsg($('shMsg'), 'Paste the link of the picture you want to be able to paste in the game.'); renderShop(); } else buyItem(c); });
+      row.append(ic, tx, buy); list.append(row);
+    }
+  }
+  async function buyItem(c, url) {
+    if (!me) return;
+    setMsg($('shMsg'), c.needsLink ? 'Checking that picture…' : '');
+    let r;
+    try { r = await post('shop', { id: me.id, token: me.token, op: 'buy', item: c.id, url }, 12000); } catch (e) { setMsg($('shMsg'), 'Could not reach the shop — try again.', 'err'); return; }
+    if (r.status === 200 && r.data) {
+      shBuying = null; applyInv(r.data);
+      const slot = inv.hotbar.findIndex(s => typeof s === 'number' && inv.items.some(i => i.u === s && i.t === c.id && !inv.hotbar.slice(0, inv.hotbar.indexOf(s)).includes(s)));
+      setMsg($('shMsg'), 'Bought ' + c.name + '. It\'s in your ' + (slot >= 3 ? 'hotbar slot ' + (slot + 1) : 'inventory') + ' — press E to arrange it.', 'ok');
+    } else if (r.status === 410) { setMsg($('shMsg'), 'You were disconnected.', 'err'); }
+    else setMsg($('shMsg'), (r.data && r.data.error) || 'That didn\'t work.', 'err');
+  }
+
+  // ----- customiser -----
+  function openCustom() { if (!me) return; closeModals(true); $('custom').classList.remove('hidden'); $('cuName').value = me.name; renderCustom(); setTimeout(() => $('cuName').focus(), 0); }
+  function renderCustom() {
+    const box = $('cuSw');
+    while (box.firstChild) box.removeChild(box.firstChild);
+    cfg.PALETTE.forEach((c, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'sw' + (me && me.cidx === i ? ' sel' : '');
+      b.style.background = c[1]; b.title = c[0]; b.setAttribute('aria-label', c[0]);
+      b.addEventListener('click', () => pickColor(i));
+      box.append(b);
+    });
+    $('cuChosen').textContent = me ? (cfg.PALETTE[me.cidx] || ['', ''])[0] : '';
+    drawPreview();
+  }
+  function pickColor(i) {
+    me.cidx = i; me.color = cfg.PALETTE[i][1];
+    store('cc_color', String(i));
+    actions.push({ i: ++aidCounter, t: 'color', c: i });
+    const r = roster.get(me.id); if (r) r.color = me.color;
+    renderCustom(); kick();
+  }
+  function applyName() {
+    if (!me) return;
+    const n = $('cuName').value.replace(/[<>]/g, '').trim().slice(0, 16);
+    if (!n || n === me.name) return;
+    me.name = n; playerName = n; store('cc_name', n);
+    actions.push({ i: ++aidCounter, t: 'rename', n });
+    const r = roster.get(me.id); if (r) r.name = n;
+    kick();
+  }
+  $('cuName').addEventListener('input', () => drawPreview());
+  $('cuName').addEventListener('keydown', e => { if (e.key === 'Enter') { applyName(); e.target.blur(); } });
+  function drawPreview() {
+    const c = $('cuPrev'), g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height);
+    if (!me) return;
+    g.save(); g.translate(120, 40); g.scale(3.2, 3.2);
+    g.fillStyle = me.color; g.strokeStyle = '#0d1117'; g.lineWidth = 1.4; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 15); g.lineTo(4, 11.5); g.lineTo(7, 18); g.lineTo(10, 16.8); g.lineTo(7.2, 10.5); g.lineTo(12, 10.5); g.closePath();
+    g.fill(); g.stroke(); g.restore();
+    g.font = '700 22px system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#e6edf3';
+    g.fillText(($('cuName').value.trim() || me.name).slice(0, 16), 140, 168);
+  }
+
+  // ----- lobby objects -----
+  const stationAt = (x, y) => STATIONS.find(s => Math.hypot(x - s.x, y - s.y) <= STATION_R) || null;
+  function tryStation() {
+    if (!inLobby()) return false;
+    const s = stationAt(cur.x, cur.y);
+    if (!s) return false;
+    if (s.id === 'custom') openCustom(); else openShop();
+    return true;
+  }
+
+  // ----- using items -----
+  const imgProps = () => { const c = catItem('image'); return c ? c.props : { minSize: 50, maxSize: 520, manaPer1000: 0.9, life: 10 }; };
+  function useItem(rec, instant) {
+    const m = myState();
+    if (!me || !m || m.dead) return;
+    if (inLobby()) { notify('Items are used inside a world.', 2500); return; }
+    if (rec.t === 'image') {
+      const p = imgProps(), ar = rec.ar || 1;
+      if (instant) { const w = clamp(120, p.minSize, p.maxSize); sendImage({ u: rec.u, x: cur.x, y: cur.y, w, ar }); return; }
+      imgDrag = { u: rec.u, x: cur.x, y: cur.y, w: p.minSize, ar, moved: false, tooSmall: false };
+      updateImgDrag();
+      return;
+    }
+    actions.push({ i: ++aidCounter, t: 'use', u: rec.u });
+    kick();
+  }
+  function imgDims(w, ar) { let h = w * ar; if (h > cfg.H) { h = cfg.H; w = h / ar; } return [w, h]; }
+  function updateImgDrag() {
+    const d = imgDrag, m = myState();
+    if (!d || !m) return;
+    const p = imgProps();
+    const dist = Math.hypot(cur.x - d.x, cur.y - d.y);
+    d.moved = d.moved || dist > 8;
+    let w = d.moved ? clamp(dist * 2, p.minSize, p.maxSize) : clamp(120, p.minSize, p.maxSize);
+    const maxByMana = Math.sqrt(Math.max(0, m.mana) * 1000 / (d.ar * p.manaPer1000));
+    if (w > maxByMana) w = maxByMana;
+    d.w = w; d.tooSmall = w < p.minSize;
+    const [fw, fh] = imgDims(w, d.ar);
+    d.cost = fw * fh / 1000 * p.manaPer1000;
+  }
+  function sendImage(d) {
+    const [w] = imgDims(d.w, d.ar);
+    actions.push({ i: ++aidCounter, t: 'use', u: d.u, x: round1(d.x), y: round1(d.y), w: round1(w) });
+    kick();
+  }
+  function finishImgDrag() {
+    const d = imgDrag; imgDrag = null;
+    if (!d) return;
+    updateImgDragFinal(d);
+  }
+  function updateImgDragFinal(d) {
+    if (d.tooSmall) { manaFlash = 1; notify('Not enough mana for a picture that size.', 2500); return; }
+    sendImage(d);
+  }
+
+  // ----- pictures: loaded from our own server and tinted with the owner's colour -----
+  function imgFor(hash, color) {
+    let e = imgCache.get(hash);
+    if (!e) {
+      e = { img: new Image(), ready: false, tint: new Map() };
+      e.img.onload = () => { e.ready = true; };
+      e.img.onerror = () => { e.failed = true; };
+      e.img.src = BASE + 'img/' + hash;
+      imgCache.set(hash, e);
+      if (imgCache.size > 40) imgCache.delete(imgCache.keys().next().value);
+    }
+    if (!e.ready) return null;
+    let t = e.tint.get(color);
+    if (!t) {
+      const iw = e.img.naturalWidth || 1, ih = e.img.naturalHeight || 1, k = Math.min(1, 512 / Math.max(iw, ih));
+      t = document.createElement('canvas'); t.width = Math.max(1, Math.round(iw * k)); t.height = Math.max(1, Math.round(ih * k));
+      const g = t.getContext('2d');
+      g.drawImage(e.img, 0, 0, t.width, t.height);
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = color; g.fillRect(0, 0, t.width, t.height);    // colour filter
+      g.globalCompositeOperation = 'destination-in'; g.drawImage(e.img, 0, 0, t.width, t.height);         // keep the picture's own shape/transparency
+      e.tint.set(color, t);
+    }
+    return t;
+  }
+  function addImage(m, remSec) { imgs.set(m.id, { id: m.id, owner: m.owner, c: m.c, img: m.img, x: m.x, y: m.y, w: m.w, h: m.h, born: nowMs(), exp: nowMs() + remSec * 1000 }); imgFor(m.img, m.c); }
+
   // ---------- In-game bar ----------
   function updateBar() {
     const bar = $('bar');
     if (!me || !world) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
-    $('worldName').textContent = world.kind === 'lobby' ? 'Lobby' : world.name + ' · ' + world.count + '/' + world.max;
+    $('worldName').textContent = world.kind === 'lobby' ? '' : world.name + ' · ' + world.count + '/' + world.max;
+    $('worldName').classList.toggle('hidden', world.kind === 'lobby');
     $('inviteBtn').classList.toggle('hidden', world.kind !== 'private');
     $('lobbyBtn').classList.toggle('hidden', world.kind === 'lobby');
   }
@@ -796,6 +1229,12 @@
     if (!me) return;
     if (wallsDirty) rebuildWalls();
     const fx = cur.x, fy = cur.y;
+    if (kbNow > 0 && !inLobby()) {                         // an explosion has thrown me: the server steers until it ends
+      const m = players.get(me.id);
+      if (m) { const k = 0.35; cur.x += (m.x - cur.x) * k; cur.y += (m.y - cur.y) * k; }
+      pathBuf = [];
+      return;
+    }
     const r = resolveMove(fx, fy, mouse.x, mouse.y, wallSegs, me.id);
     cur.x = r[0]; cur.y = r[1];
     if (cur.x !== fx || cur.y !== fy) {
@@ -830,12 +1269,9 @@
     kick();
   }
 
-  function setPen(mode) {
+  function setPen(mode) {            // kept for the touch buttons: they pick the matching hotbar slot
     if (!me) return;
-    if (mode === 'block' && inLobby()) { notify('Walls only work inside a world.', 2500); return; }
-    if (myStroke) endStroke();
-    pen = mode;
-    syncTouchButtons();
+    if (mode === 'ink') toggleTool('draw'); else if (mode === 'block') toggleTool('block'); else selectSlot(fistIdx());
   }
 
   const blockLen = s => polyLength(polyPts(s.shape, s.pts, cfg.CIRCLE_SEGMENTS));
@@ -896,22 +1332,29 @@
   cv.addEventListener('pointerdown', e => {
     if (e.button === 2) return;
     setMouse(e);
-    if (!me) return;
+    if (!me || modalOpen()) return;
     moveCursor();
+    if (tryStation()) return;
+    const it = heldItem();
+    if (it) { useItem(it, false); return; }
     if (pen !== 'off') startStroke(); else doAttack();
   });
-  window.addEventListener('pointerup', () => { if (myStroke) endStroke(); });
-  window.addEventListener('pointercancel', () => { if (myStroke) endStroke(); });
+  window.addEventListener('pointerup', () => { if (myStroke) endStroke(); if (imgDrag) finishImgDrag(); });
+  window.addEventListener('pointercancel', () => { if (myStroke) endStroke(); imgDrag = null; });
   cv.addEventListener('contextmenu', e => { e.preventDefault(); doHeal(); });
   window.addEventListener('keydown', e => {
     if (!me || !running) return;
     const k = e.key.toLowerCase();
+    if (k === 'escape') { if (modalOpen()) closeModals(); else selectSlot(fistIdx()); return; }
+    if (e.target && e.target.tagName === 'INPUT') return;            // typing a name / link
+    if (k === 'e') { if ($('invPanel').classList.contains('hidden')) openInv(); else closeModals(); return; }
+    if (modalOpen()) return;
     if (k === 'h') doHeal();
-    else if (k === 'd') setPen(pen === 'ink' ? 'off' : 'ink');
-    else if (k === 'b') setPen(pen === 'block' ? 'off' : 'block');
-    else if (k === 'escape') setPen('off');
-    else if (/^[1-4]$/.test(k)) { shape = SHAPES[+k - 1]; syncTouchButtons(); }
-    else if (k === ' ') { e.preventDefault(); doAttack(); }
+    else if (k === 'd') toggleTool('draw');
+    else if (k === 'b') toggleTool('block');
+    else if (k === 'q') { shape = SHAPES[(SHAPES.indexOf(shape) + 1) % SHAPES.length]; syncTouchButtons(); }
+    else if (/^[1-9]$/.test(k)) selectSlot(+k - 1);
+    else if (k === ' ') { e.preventDefault(); if (heldItem()) useItem(heldItem(), true); else doAttack(); }
   });
 
   // touch buttons (shown only on touch devices)
@@ -925,6 +1368,7 @@
   bInk.addEventListener('click', () => setPen(pen === 'ink' ? 'off' : 'ink'));
   bBlock.addEventListener('click', () => setPen(pen === 'block' ? 'off' : 'block'));
   bShape.addEventListener('click', () => { shape = SHAPES[(SHAPES.indexOf(shape) + 1) % SHAPES.length]; syncTouchButtons(); });
+  cv.addEventListener('pointermove', () => { if (imgDrag) updateImgDrag(); });
 
   window.addEventListener('pagehide', () => {
     if (me && navigator.sendBeacon) navigator.sendBeacon(BASE + 'api/leave', JSON.stringify({ id: me.id, token: me.token }));
@@ -954,12 +1398,15 @@
       ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(px + 6, py + 9, 16 * Math.max(0.8, cs * 1.6), 16 * Math.max(0.8, cs * 1.6), 0, 0, Math.PI * 2); ctx.stroke();
     }
-    drawCursorShape(px, py, r.color, p.dead ? 0.15 : 1);
+    const ghost = isMe && remaining(you.gh || 0) > 0;
+    drawCursorShape(px, py, r.color, p.dead ? 0.15 : ghost ? 0.3 : 1);
     if (p.dead) return;
+    if (ghost) { ctx.globalAlpha = 0.6; ctx.fillStyle = '#e6edf3'; ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('invisible ' + Math.ceil(remaining(you.gh)) + 's', px + 9, py - 30); ctx.globalAlpha = 1; }
     ctx.textAlign = 'center';
     ctx.font = '600 10px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillText(r.name, px + 9, py - (inLobby() ? 8 : 17));
     ctx.fillStyle = isMe ? '#ffffff' : r.color; ctx.fillText(r.name, px + 8, py - (inLobby() ? 9 : 18));
+    if (r.bot) { ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = '700 8px system-ui, sans-serif'; ctx.fillText('BOT', px + 8, py - 28); }
     if (!inLobby()) {
       const bw = 26, bx = px - 4, by = py - 13;
       ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx, by, bw, 3);
@@ -1062,6 +1509,84 @@
     ctx.fillText(label, x + 6, y + h - 4);
   }
 
+  function drawStations(t) {
+    for (const st of STATIONS) {
+      const x = X(st.x), y = Y(st.y), rx = STATION_R * sx, ry = STATION_R * sy;
+      const hot = !!me && Math.hypot(cur.x - st.x, cur.y - st.y) <= STATION_R;
+      ctx.save();
+      const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+      g.addColorStop(0, st.color); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.18 + (hot ? 0.2 : 0) + 0.04 * Math.sin(t / 500 + st.x);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.strokeStyle = st.color; ctx.lineWidth = hot ? 4 : 2.5;
+      ctx.beginPath(); ctx.ellipse(x, y, rx * 0.8, ry * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.textAlign = 'center'; ctx.font = Math.round(46 * Math.min(sx, sy) + 10) + 'px system-ui, sans-serif';
+      ctx.fillText(st.icon, x, y + 14 * Math.min(sx, sy) + 6 + (hot ? -3 : 0));
+      ctx.fillStyle = '#e6edf3'; ctx.font = '700 14px system-ui, sans-serif'; ctx.fillText(st.label, x, y + ry + 18);
+      ctx.fillStyle = hot ? '#ffffff' : 'rgba(230,237,243,.6)'; ctx.font = '12px system-ui, sans-serif';
+      ctx.fillText(hot ? 'click to open' : st.sub, x, y + ry + 34);
+      ctx.restore();
+    }
+  }
+
+  function drawCoins(t) {
+    for (const c of coins.values()) {
+      const rem = (c.exp - t) / 1000;
+      if (rem <= 0) continue;
+      if (rem < 4 && Math.floor(t / 150) % 2) continue;                 // blinks when about to vanish
+      const x = X(c.x), y = Y(c.y), r = 11 * Math.max(0.8, Math.min(sx, sy) * 1.2), sq = Math.abs(Math.cos(t / 420 + c.id));
+      ctx.save();
+      ctx.shadowColor = '#ffd84d'; ctx.shadowBlur = 14;
+      ctx.fillStyle = '#ffd84d'; ctx.beginPath(); ctx.ellipse(x, y, r * (0.35 + 0.65 * sq), r, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.strokeStyle = '#a77d00'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawTnts(t) {
+    for (const b of tnts.values()) {
+      const rem = Math.max(0, (b.boom - t) / 1000), x = X(b.x), y = Y(b.y), pulse = 0.5 + 0.5 * Math.sin(t / (60 + rem * 60));
+      ctx.save();
+      ctx.globalAlpha = 0.18 + 0.12 * pulse; ctx.strokeStyle = '#ff6b3d'; ctx.setLineDash([8, 8]); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(x, y, b.r * sx, b.r * sy, 0, 0, Math.PI * 2); ctx.stroke();      // blast radius
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.font = '30px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🧨', x, y + 10);
+      ctx.fillStyle = pulse > 0.5 ? '#ffffff' : '#ff6b3d'; ctx.font = '800 17px system-ui, sans-serif';
+      ctx.fillText(Math.ceil(rem) + '', x, y - 22);
+      ctx.restore();
+    }
+  }
+
+  function drawImgs(t) {
+    for (const m of imgs.values()) {
+      const rem = (m.exp - t) / 1000;
+      if (rem <= 0) { imgs.delete(m.id); continue; }
+      const tex = imgFor(m.img, m.c);
+      const x = X(m.x - m.w / 2), y = Y(m.y - m.h / 2), w = m.w * sx, h = m.h * sy;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, rem / 1) * Math.min(1, (t - m.born) / 200 + 0.2) * 0.92;
+      if (tex) ctx.drawImage(tex, x, y, w, h);
+      else { ctx.strokeStyle = m.c; ctx.setLineDash([6, 6]); ctx.strokeRect(x, y, w, h); }
+      ctx.restore();
+    }
+  }
+
+  function drawImgDrag() {
+    const d = imgDrag, m = myState();
+    if (!d || !m) return;
+    updateImgDrag();
+    const [w, h] = imgDims(d.w, d.ar);
+    const ok = !d.tooSmall;
+    ctx.save();
+    const tex = imgFor(((inv.items.find(i => i.u === d.u) || {}).img) || '', me.color);
+    if (tex) { ctx.globalAlpha = 0.55; ctx.drawImage(tex, X(d.x - w / 2), Y(d.y - h / 2), w * sx, h * sy); }
+    ctx.globalAlpha = 1; ctx.strokeStyle = ok ? me.color : '#ff6b6b'; ctx.setLineDash([8, 6]); ctx.lineWidth = 2;
+    ctx.strokeRect(X(d.x - w / 2), Y(d.y - h / 2), w * sx, h * sy);
+    ctx.setLineDash([]); ctx.fillStyle = ok ? '#9bd1ff' : '#ff9b9b'; ctx.font = '700 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(ok ? '-' + Math.ceil(d.cost || 0) + ' mana · release to paste' : 'not enough mana', X(d.x), Y(d.y + h / 2) + 18);
+    ctx.restore();
+  }
+
   let lastFrame = nowMs();
   function frame() {
     const t = nowMs();
@@ -1073,6 +1598,7 @@
     // smooth remote cursors toward their latest server position
     const k = 1 - Math.exp(-dt * 16);
     for (const p of players.values()) { p.rx += (p.x - p.rx) * k; p.ry += (p.y - p.ry) * k; }
+    kbNow = Math.max(0, kbNow - dt);
     hurt = Math.max(0, hurt - dt * 3); manaFlash = Math.max(0, manaFlash - dt * 2.5);
 
     // expire finished drawings, walls, effects and old feed lines
@@ -1095,7 +1621,8 @@
     ctx.stroke();
 
     if (me) {
-      if (inLobby()) drawPortals(t);
+      if (inLobby()) { drawPortals(t); drawStations(t); }
+      drawImgs(t); drawCoins(t); drawTnts(t);
       for (const s of strokes.values()) if (s.kind === 'block') drawBlock(s, t); else drawInk(s, t);
 
       for (const r of rings) {
@@ -1107,6 +1634,7 @@
       }
 
       for (const p of players.values()) if (p.id !== me.id) drawPlayer(p, false);
+      drawImgDrag();
       const m = myState();
       if (m) {
         // when a wall holds my cursor back, show where the real mouse is
@@ -1167,17 +1695,25 @@
 
     ctx.textAlign = 'left'; ctx.font = '12px system-ui, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.75)';
     ctx.fillText(lobby
-      ? 'Hold your cursor inside a portal for ' + cfg.PORTAL_DWELL + ' seconds to travel   ·   D: ink   ·   1-4: shape'
-      : 'Click / Space: attack   H / Right-click: heal   D: ink   B: block wall   1-4: shape   Esc: stop drawing', 16, H - 16);
+      ? 'Hold your cursor inside a portal for ' + cfg.PORTAL_DWELL + ' seconds to travel   ·   click 🎨 / 🛒 to customise or shop   ·   E: inventory'
+      : 'Click / Space: use held slot   H / Right-click: heal   1-9: hotbar   D: ink   B: wall   Q: shape   E: inventory   Esc: fist', 16, H - 90);
     ctx.fillStyle = 'rgba(255,255,255,.4)';
-    ctx.fillText((world ? world.count : players.size) + ' here · ' + Math.round(rtt) + ' ms', 16, H - 34);
+    if (!lobby) ctx.fillText((world ? world.count : players.size) + ' here · ' + Math.round(rtt) + ' ms', 16, H - 108);
+    else ctx.fillText(Math.round(rtt) + ' ms', 16, H - 108);
+    const held = heldItem();
+    if (held) {
+      const c = catItem(held.t);
+      ctx.fillStyle = me.color; ctx.font = '600 13px system-ui, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(held.t === 'image' ? 'PICTURE — click and drag out from where you want it; bigger costs more mana' :
+        held.t === 'tnt' ? 'TNT — click to light it where your cursor is (' + (c ? c.props.fuse : 3) + ' s fuse)' : 'INVISIBILITY — click to vanish for ' + (c ? c.props.duration : 20) + ' s', 16, H - 128);
+    }
     if (pen !== 'off') {
       ctx.fillStyle = me.color; ctx.font = '600 13px system-ui, sans-serif';
       const label = pen === 'ink'
         ? 'INK (cosmetic) — ' + SHAPE_NAMES[shape] + '   (1 free · 2 line · 3 box · 4 circle)'
         : 'BLOCK WALL — ' + SHAPE_NAMES[shape] + ' · others can\'t cross · lasts ' + cfg.BLOCK_LIFE + 's · ' +
           Math.round(cfg.BLOCK_COST_PER_UNIT * 100) + ' mana per 100 units';
-      ctx.fillText(label, 16, H - 54);
+      ctx.fillText(label, 16, H - 128);
     }
 
     if (solo !== null && world && world.kind === 'private') {
@@ -1200,7 +1736,7 @@
     const tNow = nowMs();
     feed.forEach((e, i) => {
       ctx.globalAlpha = Math.max(0.15, 0.9 - i * 0.14 - Math.max(0, (tNow - e.t - 4500) / 1500));
-      ctx.fillStyle = e.color; ctx.fillText(e.msg, W - 16, H - 16 - i * 16);
+      ctx.fillStyle = e.color; ctx.fillText(e.msg, W - 16, H - 90 - i * 16);
       ctx.globalAlpha = 1;
     });
 
