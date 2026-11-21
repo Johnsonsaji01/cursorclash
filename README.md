@@ -19,7 +19,7 @@ Real-time multiplayer cursor battle. Everyone is a cursor: hit nearby cursors, h
 | --- | --- |
 | Menu | A solo room per player – no other players, ink only, closes when you leave. |
 | Public world ("World 1", "World 2", …) | Max **30** players. **World 1 always has bots** to fight: 5 bots minus the number of players, so a world with 5 or more players has none (`BOT_COUNT`). When a public world goes over **20** players and no other public world has room below that, a new one is generated. Empty extra worlds are removed after 2 minutes (World 1 always stays). |
-| Private world | Invite link only (`/cursorclash/?w=CODE`). Max 30. **Deleted when only one player has been inside for over 5 minutes** (or when empty for 1 minute). The lone player sees a countdown and a "Copy invite link" button. Max 3 open per network. |
+| Private world | The first player in is the **owner** and can add 0–5 bots with the 🤖 − / + control in the top bar (bots don't count as players; `BOT_PRIVATE_MAX`; if the owner leaves, the longest-present player takes over). Invite link only (`/cursorclash/?w=CODE`). Max 30. **Deleted when only one player has been inside for over 5 minutes** (or when empty for 1 minute). The lone player sees a countdown and a "Copy invite link" button. Max 3 open per network. |
 
 ## Controls
 
@@ -57,7 +57,7 @@ Behind Cloudflare/Traefik the visitor's address is read from `CF-Connecting-IP` 
 
 ```
 npm start            # http://localhost:3000   (PORT env var changes the port)
-npm test             # 96 tests: game rules, walls, worlds, colours, bots, coins, shop, items, bot protection, admin portal
+npm test             # 98 tests: game rules, walls, worlds, colours, bots, coins, shop, items, bot protection, admin portal
 ```
 
 Environment variables (all optional): `PORT`, `SECRET` (keeps tickets valid across restarts), `TURNSTILE_SITEKEY`, `TURNSTILE_SECRET`, `TRUST_PROXY`, `HUMAN_CHECK`, `POW_BITS`, `MAX_PLAYERS_PER_IP`, `MAX_PLAYERS`, `PUBLIC_SPAWN_AT`, `PRIVATE_SOLO_SEC`, `DATA_DIR`, `ADMIN_INITIAL_PASSWORD`, `ADMIN_MAX_ATTEMPTS`, `ADMIN_LOCK_SEC`.

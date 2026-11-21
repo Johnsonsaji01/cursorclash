@@ -546,3 +546,55 @@ test('admin: give/take coins, see coins and bots, purge pictures, change bot cou
     assert.ok((await ad.call('logs', { types: ['admin-action'] })).json.entries.some(e => /Gave 80 coins to Rich/.test(e.msg)));
   });
 });
+
+test('private worlds: only the owner can add up to 5 bots; bots never count as players; ownership passes on', async () => {
+  await withServer({ PRIVATE_SOLO_SEC: 1000 }, async (g, base) => {
+    const w = g.hub.createPrivate('x').world;
+    const a = new P(base), b = new P(base);
+    await a.join('Owner', { world: w.id, color: 0 }); await b.join('Guest', { world: w.id, color: 1 });
+    assert.deepEqual(a.last.pb, [0, 1, 5]); assert.deepEqual(b.last.pb, [0, 0, 5]);
+    await b.sync(100, 100, [b.act({ t: 'bots', n: 3 })]);                    // a guest can't
+    assert.equal([...w.players.values()].filter(p => p.bot).length, 0);
+    await a.sync(100, 100, [a.act({ t: 'bots', n: 9 })]);                    // the owner is capped at 5
+    const bots = () => [...w.players.values()].filter(p => p.bot);
+    assert.equal(bots().length, 5);
+    assert.equal(w.count(), 2);                                              // bots are not players
+    assert.equal(w.info().count, 2);
+    const s = await a.sync(100, 100, [a.act({ t: 'bots', n: 2 })]);
+    assert.equal(bots().length, 2); assert.equal(s.json.pb[0], 2);
+    assert.ok(a.roster.length === 4 || a.last.roster === undefined);
+    g.hub.leave({ id: a.id, token: a.token });                               // owner leaves: the guest takes over
+    await sleep(50);
+    const r = await b.sync(100, 100, []); assert.equal(r.json.pb[1], 1);
+    await b.sync(100, 100, [b.act({ t: 'bots', n: 0 })]); assert.equal(bots().length, 0);
+    assert.equal(g.hub.worlds.get('w1').kind, 'public');
+    assert.equal([...g.hub.worlds.get('w1').players.values()].filter(p => p.bot).length, 0);   // other worlds are unaffected
+  });
+});
+
+test('bot AI: they hunt, keep moving, flee when hurt, dodge TNT and never get stuck in one place', async () => {
+  await withServer({ BOT_COUNT: 3, SHIELD: 0 }, async (g, base) => {
+    const w = W(g);
+    const p = new P(base); await p.join('Human', { color: 0 });
+    const bots = () => [...w.players.values()].filter(o => o.bot);
+    assert.equal(bots().length, 2);
+    // roaming: with the human far away they still travel a lot and look for the human
+    const me = [...w.players.values()].find(o => !o.bot); me.x = 40; me.y = 40; me.shieldUntil = 1e9;
+    const last = bots().map(b => [b.x, b.y]); const dist = bots().map(() => 0);
+    for (let i = 0; i < 60; i++) { await sleep(50); bots().forEach((b, j) => { dist[j] += Math.hypot(b.x - last[j][0], b.y - last[j][1]); last[j] = [b.x, b.y]; }); }
+    for (const d of dist) assert.ok(d > 300, 'bot travelled ' + d);
+    // hurt bots run away from the nearest foe and heal
+    const b = bots()[0], o = bots()[1];
+    me.shieldUntil = 0; me.dead = true;
+    b.x = 800; b.y = 450; b.hp = 20; b.fleeing = false; o.x = 860; o.y = 450; o.shieldUntil = 0; o.atkReady = 1e9;
+    await sleep(900);
+    assert.ok(b.fleeing && Math.hypot(b.x - o.x, b.y - o.y) > 100, 'fled to ' + Math.round(Math.hypot(b.x - o.x, b.y - o.y)));
+    assert.ok(b.hp > 20 || b.mana < 100, 'it healed');
+    // a lit TNT makes them leave its blast radius
+    me.dead = false; me.x = 40; me.y = 40; me.shieldUntil = 1e9; b.hp = 100; b.fleeing = false; o.hp = 100;
+    b.x = 800; b.y = 450; o.x = 1400; o.y = 800;
+    w.tnts.set(99, { id: 99, x: 810, y: 450, owner: 0, on: 'x', fuse: 3, boom: g.hub.now() + 3, radius: 220, damage: 35, push: 0 });
+    await sleep(1500);
+    assert.ok(Math.hypot(b.x - 810, b.y - 450) > 220, 'left the blast zone');
+  });
+});

@@ -56,7 +56,7 @@ const DEFAULTS = {
   PRIVATE_EMPTY_SEC: 60,
   MAX_PRIVATE_PER_IP: 3, MAX_PRIVATE_TOTAL: 200,
   // bots in World 1, coins, explosions
-  BOT_COUNT: 5, COIN_R: 26, KB_TIME: 0.55, IMG_ALLOW_PRIVATE: false,
+  BOT_COUNT: 5, BOT_PRIVATE_MAX: 5, COIN_R: 26, KB_TIME: 0.55, IMG_ALLOW_PRIVATE: false,
   // bot / macro protection
   HUMAN_CHECK: true,                   // false = proof-of-work only (for load-testing your own server)
   POW_BITS: 16, CHALLENGE_TTL: 600, MIN_VERIFY_MS: 1200, MIN_HOLD_MS: 900, MIN_MOVES: 3,

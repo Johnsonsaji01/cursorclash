@@ -71,6 +71,8 @@
   #touch button.on { background: #ffd84d; color: #1b1500; border-color: #ffd84d; }
 
   /* ---- v2.3: coins, hotbar, panels ---- */
+  #botCtl { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+  #botCtl button { padding: 3px 9px !important; }
   #coinBadge { color: #ffd84d; font-weight: 700; }
   #hotbar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); display: none; gap: 6px; z-index: 4; padding: 6px;
     border-radius: 14px; background: rgba(22, 27, 34, .88); border: 1px solid #30363d; }
@@ -111,7 +113,7 @@
 <body>
 <canvas id="c"></canvas>
 
-<div id="bar" class="hidden"><span id="coinBadge" title="Your coins">🪙 <span id="coinN">0</span></span><span id="worldName"></span><button id="inviteBtn" class="hidden" type="button">Copy invite link</button><button id="lobbyBtn" type="button">Menu</button></div>
+<div id="bar" class="hidden"><span id="coinBadge" title="Your coins">🪙 <span id="coinN">0</span></span><span id="worldName"></span><span id="botCtl" class="hidden" title="Bots that play along in your private world (they don't count as players)">🤖 <button id="botDn" type="button">−</button><b id="botN">0</b><button id="botUp" type="button">+</button></span><button id="inviteBtn" class="hidden" type="button">Copy invite link</button><button id="lobbyBtn" type="button">Menu</button></div>
 <div id="hotbar" aria-label="Hotbar"></div>
 <div id="toast"></div>
 <div id="banner">Reconnecting…</div>
@@ -316,6 +318,7 @@
   let inv = { coins: 0, ver: 0, hotbar: ['fist', 'draw', 'block', null, null, null, null, null, null], items: [], invMax: 27 };
   let catalog = [];
   let selSlot = 0, imgDrag = null;
+  let pb = null;                                               // private world: [bots, iAmOwner, max]
 
   const SHAPES = ['free', 'line', 'rect', 'circle'];
   const SHAPE_NAMES = { free: 'Freehand', line: 'Line', rect: 'Box', circle: 'Circle' };
@@ -376,7 +379,7 @@
   function resetWorld() {
     roster.clear(); players.clear(); strokes.clear();
     rings.length = 0; floaters.length = 0; portals = []; solo = null;
-    coins.clear(); tnts.clear(); imgs.clear(); cv2 = 0; kbNow = 0; imgDrag = null;
+    pb = null; coins.clear(); tnts.clear(); imgs.clear(); cv2 = 0; kbNow = 0; imgDrag = null;
     actions = []; myStroke = null; seq = 0; rv = 0; pv = 0; pathBuf = []; wallSegs = []; wallsDirty = true; pen = 'off';
   }
 
@@ -393,6 +396,7 @@
     }
     if (d.n !== undefined && world) { if (world.count !== d.n) { world.count = d.n; updateBar(); } }
     solo = d.solo !== undefined ? d.solo : null;
+    if (d.pb) { const was = pb && pb.join(); pb = d.pb; if (was !== pb.join()) updateBar(); } else if (pb) { pb = null; updateBar(); }
     if (d.coins) {
       coins.clear();
       for (const c of d.coins) coins.set(c[0], { id: c[0], x: c[1], y: c[2], v: c[3], exp: nowMs() + c[4] * 1000 });
@@ -1219,8 +1223,13 @@
     $('worldName').textContent = world.kind === 'lobby' ? '' : world.name + ' · ' + world.count + '/' + world.max;
     $('worldName').classList.toggle('hidden', world.kind === 'lobby');
     $('inviteBtn').classList.toggle('hidden', world.kind !== 'private');
+    $('botCtl').classList.toggle('hidden', !(world.kind === 'private' && pb && pb[1]));
+    if (pb) { $('botN').textContent = pb[0]; $('botDn').disabled = pb[0] <= 0; $('botUp').disabled = pb[0] >= pb[2]; }
     $('lobbyBtn').classList.toggle('hidden', world.kind === 'lobby');
   }
+  function setBots(n) { if (!pb || !pb[1]) return; n = clamp(n, 0, pb[2]); pb[0] = n; updateBar(); actions.push({ i: ++aidCounter, t: 'bots', n }); kick(); }
+  $('botDn').addEventListener('click', () => setBots((pb ? pb[0] : 0) - 1));
+  $('botUp').addEventListener('click', () => setBots((pb ? pb[0] : 0) + 1));
   $('lobbyBtn').addEventListener('click', () => { if (!transitioning) goLobby(); });
   $('inviteBtn').addEventListener('click', () => { if (world) copyText(inviteLink(world.id), 'Invite link copied — send it to your friends'); });
 
